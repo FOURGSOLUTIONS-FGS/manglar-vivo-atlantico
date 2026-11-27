@@ -124,6 +124,7 @@ test("Email Template: incluye branding CRA, enlace admin, Google Maps, Ley 1581 
   assert.match(html, /SIMULADO \(DEMO\)/);
   assert.match(html, /Ley 1581 de 2012/);
   assert.match(html, /https:\/\/manglar\.fourgsolutions\.com\/admin\?code=MGL-2026-9999/);
+  assert.match(html, /https:\/\/manglar\.fourgsolutions\.com\/api\/minimap\?lat=11\.0448/);
   assert.match(html, /https:\/\/www\.google\.com\/maps\?q=11\.0448,-74\.8632/);
   assert.match(text, /MGL-2026-9999/);
 });
