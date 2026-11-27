@@ -28,6 +28,11 @@ import type { AlertLevel } from "@/core/alerts/types";
 import type { AttentionStatus } from "@/lib/cra-domain";
 import { ReliabilityMeter } from "@/components/ReliabilityMeter";
 import {
+  AdminAnalytics,
+  type AnalyticsDispatch,
+  type AnalyticsReport,
+} from "@/components/AdminAnalytics";
+import {
   playAlertSound,
   requestBrowserNotificationPermission,
   showBrowserAlertNotification,
@@ -116,7 +121,9 @@ function AdminCommandContent() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get("code") || "";
 
-  const [tab, setTab] = useState<"bandeja" | "matriz" | "correos" | "arquitectura">("bandeja");
+  const [tab, setTab] = useState<"panorama" | "bandeja" | "matriz" | "correos" | "arquitectura">(
+    initialCode ? "bandeja" : "panorama"
+  );
   const [reports, setReports] = useState<AdminReportRow[]>([]);
   const [dispatches, setDispatches] = useState<DispatchRow[]>([]);
   const [channelStatus, setChannelStatus] = useState<ChannelStatusInfo | null>(null);
@@ -455,6 +462,7 @@ function AdminCommandContent() {
           {/* Pestañas principales */}
           <div className="mt-5 flex flex-wrap gap-2">
             {[
+              { id: "panorama", label: "Panorama e históricos" },
               { id: "bandeja", label: "Bandeja total y seguimiento" },
               { id: "matriz", label: "¿Quién recibe cada alerta?" },
               { id: "correos", label: "Correos urgentes y subdominio" },
@@ -520,6 +528,15 @@ function AdminCommandContent() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* TAB 0: PANORAMA HISTÓRICO Y DASHBOARDS */}
+        {tab === "panorama" && (
+          <AdminAnalytics
+            reports={reports as unknown as AnalyticsReport[]}
+            dispatches={dispatches as unknown as AnalyticsDispatch[]}
+            liveConnected={liveConnected}
+          />
         )}
 
         {/* TAB 1: BANDEJA TOTAL Y SEGUIMIENTO */}

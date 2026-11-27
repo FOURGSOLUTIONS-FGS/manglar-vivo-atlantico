@@ -64,19 +64,22 @@ interface DatasetSample {
 function compressForPreview(file: File): Promise<string> {
   return new Promise((resolve) => {
     const reader = new FileReader();
+    reader.onerror = () => resolve("");
     reader.onload = (ev) => {
+      const rawUrl = String(ev.target?.result || "");
       const img = new Image();
+      img.onerror = () => resolve(rawUrl);
       img.onload = () => {
-        const maxSide = 900;
+        const maxSide = 768;
         const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.78));
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
       };
-      img.src = String(ev.target?.result || "");
+      img.src = rawUrl;
     };
     reader.readAsDataURL(file);
   });
@@ -141,95 +144,171 @@ function ReportarContent() {
   const [aiResult, setAiResult] = useState<Record<string, unknown> | null>(null);
 
   const [voiceListening, setVoiceListening] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceTranscribing, setVoiceTranscribing] = useState(false);
+  const [voiceSeconds, setVoiceSeconds] = useState(0);
+  const [voiceSupported, setVoiceSupported] = useState(true);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const w = window as unknown as {
-        SpeechRecognition?: unknown;
-        webkitSpeechRecognition?: unknown;
-      };
-      setVoiceSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+      const canRecord =
+        typeof navigator !== "undefined" &&
+        Boolean(navigator.mediaDevices?.getUserMedia) &&
+        typeof MediaRecorder !== "undefined";
+      setVoiceSupported(canRecord);
     }
     return () => {
-      recognitionRef.current?.stop();
+      if (voiceTimerRef.current) clearInterval(voiceTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  const toggleVoiceDictation = () => {
+  const stopRecordingTracks = () => {
+    if (voiceTimerRef.current) {
+      clearInterval(voiceTimerRef.current);
+      voiceTimerRef.current = null;
+    }
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+  };
+
+  const transcribeRecordedBlob = async (blob: Blob, mimeType: string) => {
+    setVoiceTranscribing(true);
+    setVoiceStatus("Transcribiendo tu nota de voz en español...");
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("read_error"));
+        reader.onloadend = () => resolve(String(reader.result || ""));
+        reader.readAsDataURL(blob);
+      });
+
+      const res = await fetch("/api/ai/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioBase64: base64,
+          mimeType,
+          sectorHint: spatialCtx?.sector.nombre || "Atlántico",
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        transcript?: string;
+        empty?: boolean;
+        message?: string;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        setVoiceStatus(data.error || "No se pudo transcribir el audio. Intenta de nuevo.");
+        return;
+      }
+
+      if (data.empty || !data.transcript) {
+        setVoiceStatus(data.message || "No se escuchó voz clara. Habla más cerca del micrófono.");
+        return;
+      }
+
+      setDescripcion((prev) => (prev ? `${prev} · ${data.transcript}` : data.transcript!));
+      setVoiceStatus(`Texto dictado agregado: "${data.transcript}"`);
+    } catch {
+      setVoiceStatus("Sin conexión para transcribir tu voz. Escribe o usa los botones rápidos.");
+    } finally {
+      setVoiceTranscribing(false);
+    }
+  };
+
+  const toggleVoiceDictation = async () => {
+    if (voiceTranscribing) return;
+
     if (voiceListening) {
-      recognitionRef.current?.stop();
       setVoiceListening(false);
-      setVoiceStatus("Dictado detenido.");
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      } else {
+        stopRecordingTracks();
+      }
       return;
     }
 
-    const w = window as unknown as {
-      SpeechRecognition?: new () => {
-        lang: string;
-        interimResults: boolean;
-        continuous: boolean;
-        onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null;
-        onerror: ((ev: { error?: string }) => void) | null;
-        onend: (() => void) | null;
-        start: () => void;
-        stop: () => void;
-      };
-      webkitSpeechRecognition?: new () => {
-        lang: string;
-        interimResults: boolean;
-        continuous: boolean;
-        onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null;
-        onerror: ((ev: { error?: string }) => void) | null;
-        onend: (() => void) | null;
-        start: () => void;
-        stop: () => void;
-      };
-    };
-
-    const SpeechRec = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SpeechRec) {
-      setVoiceStatus("Tu navegador no soporta dictado por voz. Puedes escribir o usar los botones rápidos.");
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      setVoiceStatus("Este navegador no permite grabar micrófono. Usa los botones rápidos o escribe.");
       return;
     }
 
     try {
-      const rec = new SpeechRec();
-      rec.lang = "es-CO";
-      rec.interimResults = false;
-      rec.continuous = false;
-      rec.onresult = (ev) => {
-        const parts: string[] = [];
-        for (let i = 0; i < ev.results.length; i += 1) {
-          const t = ev.results[i]?.[0]?.transcript?.trim();
-          if (t) parts.push(t);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const preferredTypes = [
+        "audio/mp4",
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+      ];
+      const supportedMime =
+        preferredTypes.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+
+      const recorder = supportedMime
+        ? new MediaRecorder(stream, { mimeType: supportedMime })
+        : new MediaRecorder(stream);
+
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          audioChunksRef.current.push(ev.data);
         }
-        const spoken = parts.join(" ").trim();
-        if (spoken) {
-          setDescripcion((prev) => (prev ? `${prev} · ${spoken}` : spoken));
-          setVoiceStatus(`Texto dictado agregado: "${spoken}"`);
+      };
+      recorder.onstop = () => {
+        const finalMime = recorder.mimeType || supportedMime || "audio/webm";
+        const chunks = audioChunksRef.current;
+        stopRecordingTracks();
+        if (chunks.length === 0) {
+          setVoiceStatus("No se capturó audio. Intenta hablar durante 2 o 3 segundos.");
+          return;
         }
+        const blob = new Blob(chunks, { type: finalMime });
+        void transcribeRecordedBlob(blob, finalMime);
       };
-      rec.onerror = (ev) => {
-        setVoiceListening(false);
-        setVoiceStatus(
-          ev.error === "not-allowed"
-            ? "Permiso de micrófono denegado. Actívalo para dictar tu reporte."
-            : "No se escuchó voz clara. Intenta de nuevo."
-        );
-      };
-      rec.onend = () => {
-        setVoiceListening(false);
-      };
-      recognitionRef.current = rec;
+
+      mediaRecorderRef.current = recorder;
+      setVoiceSeconds(0);
       setVoiceListening(true);
-      setVoiceStatus("Escuchando en español (Colombia)... cuéntanos qué ves en el manglar.");
-      rec.start();
-    } catch {
+      setVoiceStatus("Grabando voz... cuéntanos qué ves y toca de nuevo para transcribir.");
+      recorder.start();
+
+      voiceTimerRef.current = setInterval(() => {
+        setVoiceSeconds((s) => {
+          if (s >= 24) {
+            setVoiceListening(false);
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+              mediaRecorderRef.current.stop();
+            }
+            return 25;
+          }
+          return s + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      stopRecordingTracks();
       setVoiceListening(false);
-      setVoiceStatus("No se pudo iniciar el micrófono en este dispositivo.");
+      const name = err instanceof Error ? err.name : "";
+      setVoiceStatus(
+        name === "NotAllowedError" || name === "PermissionDeniedError"
+          ? "Permiso de micrófono denegado. Actívalo en el candado del navegador."
+          : "No se pudo abrir el micrófono en este dispositivo."
+      );
     }
   };
 
@@ -364,7 +443,8 @@ function ReportarContent() {
     previews: string[],
     subtypeOverride?: typeof activeSubtype
   ) => {
-    if (previews.length === 0) {
+    const validPreviews = previews.filter((p) => p.startsWith("data:image/"));
+    if (validPreviews.length === 0) {
       setAiResult(null);
       return;
     }
@@ -377,8 +457,8 @@ function ReportarContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageDataUrl: previews[0],
-          imageDataUrls: previews.slice(0, 3),
+          imageDataUrl: validPreviews[0],
+          imageDataUrls: validPreviews.slice(0, 3),
           tipoEvento: sub.eventType,
           subtipoEvento: sub.id,
           factorDominio: dom.title,
@@ -387,12 +467,27 @@ function ReportarContent() {
           enZonaPorRevisar: spatialCtx?.inPorRevisar828Ha,
         }),
       });
-      if (res.ok) setAiResult(await res.json());
+      if (res.ok) {
+        setAiResult(await res.json());
+      } else {
+        const errData = (await res.json().catch(() => ({}))) as { error?: string };
+        setAiResult({
+          mode: "api_error",
+          es_evidencia_valida: null,
+          pendiente_verificacion_ia: true,
+          que_muestra_la_foto: "No se pudo completar la inspección visual en la nube.",
+          clasificacion_tecnica:
+            errData.error ||
+            "Conexión interrumpida al verificar la foto. Reintenta con mejor señal.",
+        });
+      }
     } catch {
       setAiResult({
         mode: "offline_queued",
-        es_evidencia_valida: true,
-        clasificacion_tecnica: `${sub.technicalHint} (clasificación local offline)`,
+        es_evidencia_valida: null,
+        pendiente_verificacion_ia: true,
+        que_muestra_la_foto: "Sin señal de internet para inspeccionar la foto ahora.",
+        clasificacion_tecnica: `${sub.technicalHint} (pendiente de verificación visual)`,
       });
     } finally {
       setAiLoading(false);
@@ -602,8 +697,9 @@ function ReportarContent() {
           evidencia_exif: enrichedExif,
           ai_classification: aiResult ?? {
             mode: "user_structured_taxonomy",
-            es_evidencia_valida: true,
-            clasificacion_tecnica: activeSubtype.technicalHint,
+            es_evidencia_valida: null,
+            pendiente_verificacion_ia: true,
+            clasificacion_tecnica: `${activeSubtype.technicalHint} (sin inspección visual IA)`,
             subtipo_evento: activeSubtype.id,
           },
           ground_truth_match: spatialCtx?.nearestGroundTruth
@@ -1240,7 +1336,7 @@ function ReportarContent() {
                 </div>
               )}
 
-              {/* Resultado del filtro visual IA (rechazo honesto, alerta de desajuste o confirmación) */}
+              {/* Resultado del filtro visual IA (rechazo honesto, pendiente por red, desajuste o confirmación) */}
               {(aiLoading || aiResult) && (
                 <div
                   className={`rounded-xl border p-4 text-xs ${
@@ -1248,6 +1344,8 @@ function ReportarContent() {
                       ? "border-[#005F96]/25 bg-[#EDF2F6]"
                       : aiPhotoValid === false
                       ? "border-[#C84023]/45 bg-[#C84023]/10"
+                      : aiPhotoValid === null
+                      ? "border-[#C98206]/45 bg-[#EDB512]/15"
                       : aiCategoryMismatch
                       ? "border-[#C98206]/45 bg-[#EDB512]/15"
                       : "border-[#16794A]/35 bg-[#16794A]/10"
@@ -1260,7 +1358,7 @@ function ReportarContent() {
                           ? "text-[#005F96]"
                           : aiPhotoValid === false
                           ? "text-[#9F2D15]"
-                          : aiCategoryMismatch
+                          : aiPhotoValid === null || aiCategoryMismatch
                           ? "text-[#7C4F00]"
                           : "text-[#115E39]"
                       }`}
@@ -1269,6 +1367,8 @@ function ReportarContent() {
                         <Sparkles className="h-4 w-4" />
                       ) : aiPhotoValid === false ? (
                         <XCircle className="h-4 w-4" />
+                      ) : aiPhotoValid === null ? (
+                        <AlertTriangle className="h-4 w-4" />
                       ) : aiCategoryMismatch ? (
                         <ShieldAlert className="h-4 w-4" />
                       ) : (
@@ -1279,12 +1379,22 @@ function ReportarContent() {
                         ? "Auditando píxeles con IA multimodal..."
                         : aiPhotoValid === false
                         ? `Evidencia rechazada por filtro IA (0/25 pts) · ${String(aiResult?.model || "")}`
+                        : aiPhotoValid === null
+                        ? "Pendiente de verificación visual IA (no confirmada aún)"
                         : aiCategoryMismatch
                         ? `Factor diferente detectado en la imagen · ${String(aiResult?.model || "")}`
-                        : aiResult?.mode === "openrouter_live"
-                        ? `Evidencia ambiental confirmada (+25 pts) · ${String(aiResult.model)}`
-                        : "Preclasificación local offline"}
+                        : `Evidencia ambiental confirmada (${photos.length >= 2 ? "25/25" : "18/25"} pts) · ${String(aiResult?.model || "")}`}
                     </span>
+
+                    {!aiLoading && aiPhotoValid === null && photos.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => runVisionAudit(photos.map((p) => p.preview))}
+                        className="min-h-[34px] rounded-md bg-[#041A29] px-3 text-[11px] font-black text-white transition hover:bg-[#005F96]"
+                      >
+                        Reintentar verificación IA
+                      </button>
+                    )}
                   </div>
 
                   {aiResult && !aiLoading && (
@@ -1366,10 +1476,13 @@ function ReportarContent() {
                   </span>
                   <button
                     type="button"
+                    disabled={voiceTranscribing}
                     onClick={toggleVoiceDictation}
-                    className={`inline-flex min-h-[40px] items-center gap-2 rounded-lg px-3.5 text-xs font-black transition ${
+                    className={`inline-flex min-h-[42px] items-center gap-2 rounded-lg px-3.5 text-xs font-black transition ${
                       voiceListening
                         ? "bg-[#C84023] text-white"
+                        : voiceTranscribing
+                        ? "bg-[#005F96] text-white opacity-90"
                         : voiceSupported
                         ? "bg-[#041A29] text-white hover:bg-[#005F96]"
                         : "border border-[#041A29]/15 bg-[#EDF2F6] text-[#041A29]/60"
@@ -1378,7 +1491,14 @@ function ReportarContent() {
                     {voiceListening ? (
                       <>
                         <MicOff className="h-4 w-4" />
-                        <span>Detener dictado...</span>
+                        <span>
+                          Detener y transcribir (0:{String(voiceSeconds).padStart(2, "0")})
+                        </span>
+                      </>
+                    ) : voiceTranscribing ? (
+                      <>
+                        <Sparkles className="h-4 w-4 animate-pulse text-[#F8D86F]" />
+                        <span>Transcribiendo voz...</span>
                       </>
                     ) : (
                       <>

@@ -47,21 +47,20 @@ function heuristicClassify(input: {
   return {
     mode: "heuristic_local_fallback",
     model: "reglas-cra-atlantico-v2",
-    es_evidencia_valida: true,
-    que_muestra_la_foto: "Sin inspección visual remota (modo offline/local).",
+    es_evidencia_valida: null,
+    pendiente_verificacion_ia: true,
+    que_muestra_la_foto: "Sin inspección visual remota (conexión lenta o servicio IA temporalmente ocupado).",
     motivo_rechazo: null,
     alerta_privacidad_rostros: false,
-    coincide_con_categoria: true,
+    coincide_con_categoria: null,
     tipo_evento_sugerido: tipoSugerido,
     subtipo_sugerido: (subtypeMeta?.id || input.subtipoEvento || null) as SubtypeId | null,
-    clasificacion_tecnica: clasificacion,
+    clasificacion_tecnica: `${clasificacion} (pendiente de verificación visual)`,
     severidad,
-    confianza: 0.72,
-    resumen_tecnico: `Preclasificación local para ${input.zonaManglar || "Atlántico"} pendiente de revisión por mentor.`,
+    confianza: 0.45,
+    resumen_tecnico: `No se pudo inspeccionar la fotografía en la nube; quedó pendiente de verificación visual o revisión por mentor en ${input.zonaManglar || "Atlántico"}.`,
     recomendacion_cra:
-      severidad === "alta"
-        ? "Priorizar verificación de mentor comunitario y cruce con dosel seco / alerta temprana."
-        : "Integrar a bandeja de revisión territorial y confirmar con mentor académico.",
+      "Reintentar verificación visual con buena señal o validar en bandeja CRA antes de confirmar evidencia.",
   };
 }
 
@@ -70,28 +69,34 @@ async function callOpenRouterModel(
   model: string,
   userContent: Array<Record<string, unknown>>
 ) {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://manglarvivo.cra.gov.co",
-      "X-Title": "Manglar Vivo Atlantico CRA",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      max_tokens: 1200,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Eres un auditor técnico estricto de visión por computador de la CRA Atlántico (Colombia). Tu regla número 1 es NUNCA alucinar ni inventar manglares, tala o contaminación si la fotografía no los muestra realmente. Si la imagen es un interior, oficina, selfie, retrato, pantalla o escena ajena a ecosistemas costeros/ambientales, DEBES marcar es_evidencia_valida=false con honestidad total. Responde SIEMPRE un único objeto JSON válido sin markdown.",
-        },
-        { role: "user", content: userContent },
-      ],
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: AbortSignal.timeout(18000),
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://manglar.arpadura.com",
+        "X-Title": "Manglar Vivo Atlantico CRA",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        max_tokens: 1200,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Eres un auditor técnico estricto de visión por computador de la CRA Atlántico (Colombia). Tu regla número 1 es NUNCA alucinar ni inventar manglares, tala o contaminación si la fotografía no los muestra directamente al aire libre. Si la imagen es un interior, oficina, escritorio, computador, laptop, monitor, pantalla de celular/TV (INCLUSO si esa pantalla muestra una foto o página web de un manglar), teclado, selfie, retrato o cualquier escena ajena a una captura directa en campo natural/costero, DEBES marcar es_evidencia_valida=false con honestidad total. Responde SIEMPRE un único objeto JSON válido sin markdown.",
+          },
+          { role: "user", content: userContent },
+        ],
+      }),
+    });
+  } catch {
+    return { ok: false as const, status: 504 };
+  }
 
   if (!res.ok) {
     return { ok: false as const, status: res.status };
@@ -180,13 +185,13 @@ ${
   hasImage
     ? `Describe primero objetivamente QUÉ se ve realmente en los píxeles de la foto ("que_muestra_la_foto"), SIN dejarte influenciar por lo que seleccionó el ciudadano.
 Evalúa si la foto corresponde realmente a un entorno natural/costero/humedal/manglar/cuerpo de agua/fauna silvestre o amenaza ambiental real al aire libre (tala, relleno, obra en humedal, quema, agua estancada, árboles secos, erosión, basura en costa/agua, vertimiento, mancha de aceite, fauna).
-SI la foto muestra una persona/selfie/retrato en primer plano, una oficina, sala, puerta, computador/pantalla, mascota doméstica, comida, vehículo en calle urbana sin relación o cualquier escena NO ambiental/costera:
+SI la foto muestra un computador, laptop, monitor, pantalla de PC/TV/celular (INCLUSO si en la pantalla se ve una foto de manglar o una web), teclado, mouse, escritorio, oficina, sala, habitación, puerta, persona/selfie/retrato en primer plano, mascota doméstica, comida, vehículo en calle urbana sin relación o cualquier escena que NO sea una fotografía tomada directamente al aire libre en un entorno ambiental/costero:
 - Pon "es_evidencia_valida": false
 - Pon "tipo_evento_sugerido": "invalida"
 - Pon "subtipo_sugerido": null
 - Pon "severidad": "nula"
 - Pon "coincide_con_categoria": false
-- Explica con claridad en "motivo_rechazo" y "clasificacion_tecnica" por qué no es evidencia de manglar.`
+- Explica con claridad en "motivo_rechazo" y "clasificacion_tecnica" por qué no es evidencia de campo real (por ejemplo: "Fotografía de computador/pantalla o interior, no captura directa en campo").`
     : `No se adjuntó imagen; clasifica únicamente con el texto indicando que falta evidencia fotográfica.`
 }
 

@@ -24,6 +24,7 @@ const STATION_VISUALS: Record<
   {
     shortCode: string;
     heroPhoto: string;
+    audioSrc: string;
     urgencyNote: string;
     audioScript: string;
     fieldPhotos: Array<{ src: string; caption: string }>;
@@ -32,6 +33,7 @@ const STATION_VISUALS: Record<
   "mallorquin-sendero-1": {
     shortCode: "01",
     heroPhoto: "/images/turista-qr-sendero.png",
+    audioSrc: "/media/audio/estacion-1.mp3",
     urgencyNote:
       "Borde urbano de mayor presión junto a Barranquilla · Concentra 70,659 toneladas de carbono azul.",
     audioScript:
@@ -44,6 +46,7 @@ const STATION_VISUALS: Record<
   "puerto-velero-muelle": {
     shortCode: "02",
     heroPhoto: "/images/hero-manglar-atlantico.png",
+    audioSrc: "/media/audio/estacion-2.mp3",
     urgencyNote:
       "Corredor estuarino estratégico para amortiguación de oleaje y pesca artesanal · 105.8 ha por revisar.",
     audioScript:
@@ -56,6 +59,7 @@ const STATION_VISUALS: Record<
   "juan-acosta-estuario": {
     shortCode: "03",
     heroPhoto: "/images/hero-manglar-atlantico.png",
+    audioSrc: "/media/audio/estacion-3.mp3",
     urgencyNote:
       "Sector prioridad crítica 2026: registró la anomalía de sequía más fuerte (-0.151) y riesgo 0.436.",
     audioScript:
@@ -68,6 +72,7 @@ const STATION_VISUALS: Record<
   "totumo-astilleros": {
     shortCode: "04",
     heroPhoto: "/images/escuelas-guardianes.png",
+    audioSrc: "/media/audio/estacion-4.mp3",
     urgencyNote:
       "Mayor rezago de verificación en campo del departamento: 451.8 ha de las 828 ha por revisar.",
     audioScript:
@@ -95,6 +100,7 @@ export default async function NfcPointLandingPage({
     ...baseStation,
     shortCode: visuals.shortCode,
     heroPhoto: visuals.heroPhoto,
+    audioSrc: visuals.audioSrc,
     urgencyNote: visuals.urgencyNote,
     audioScript: visuals.audioScript,
     fieldPhotos: visuals.fieldPhotos,

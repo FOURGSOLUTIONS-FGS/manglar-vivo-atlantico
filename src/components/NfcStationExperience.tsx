@@ -33,6 +33,7 @@ export interface StationMeta {
   datoClave: string;
   especies: string;
   heroPhoto: string;
+  audioSrc: string;
   fieldPhotos: Array<{ src: string; caption: string }>;
   urgencyNote: string;
   audioScript: string;
@@ -62,56 +63,81 @@ export function NfcStationExperience({
   totalSectorReports,
 }: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [viewMode, setViewMode] = useState<"terreno" | "satelite" | "mapa">("terreno");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [audioCurrentSec, setAudioCurrentSec] = useState(0);
+  const [audioDurationSec, setAudioDurationSec] = useState(24);
   const [showTranscript, setShowTranscript] = useState(false);
-  const [audioSupported, setAudioSupported] = useState(true);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setAudioSupported(false);
-      return;
-    }
-    // Precargar lista de voces en Safari/Chrome
-    window.speechSynthesis.getVoices();
+    const el = audioRef.current;
     return () => {
-      window.speechSynthesis.cancel();
+      if (el) {
+        el.pause();
+        el.currentTime = 0;
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
-  const toggleAudioGuide = () => {
+  const formatAudioTime = (sec: number) => {
+    const safe = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  const playBrowserFallback = () => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       setShowTranscript(true);
-      return;
-    }
-
-    if (isSpeaking) {
-      window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
     }
-
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(station.audioScript);
     utterance.lang = "es-CO";
     utterance.rate = 0.96;
-    utterance.pitch = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const preferred =
-      voices.find((v) => v.lang.toLowerCase() === "es-co") ||
-      voices.find((v) => v.lang.toLowerCase().startsWith("es-mx")) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith("es-419")) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith("es"));
-    if (preferred) utterance.voice = preferred;
-
-    utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
-
     setIsSpeaking(true);
     window.speechSynthesis.speak(utterance);
   };
+
+  const toggleAudioGuide = async () => {
+    const el = audioRef.current;
+    if (isSpeaking) {
+      if (el) {
+        el.pause();
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      setIsSpeaking(false);
+      return;
+    }
+
+    if (el) {
+      try {
+        if (el.ended || (el.duration && el.currentTime >= el.duration - 0.3)) {
+          el.currentTime = 0;
+        }
+        await el.play();
+        setIsSpeaking(true);
+        return;
+      } catch {
+        // fallback graceful si el audio falla o el navegador bloquea el MP3
+      }
+    }
+    playBrowserFallback();
+  };
+
+  const audioProgressPct =
+    audioDurationSec > 0
+      ? Math.min(100, Math.round((audioCurrentSec / audioDurationSec) * 100))
+      : 0;
 
   useGSAP(
     () => {
@@ -268,17 +294,32 @@ export function NfcStationExperience({
       </section>
 
       <div className="mx-auto max-w-5xl space-y-10 px-5 pt-8 lg:px-8">
-        {/* REPRODUCTOR INCLUSIVO DE AUDIO-GUÍA (OFFLINE + TRANSCRIPCIÓN) */}
+        {/* REPRODUCTOR INCLUSIVO DE AUDIO-GUÍA (VOZ NEURAL COLOMBIANA MP3 + OFFLINE + TRANSCRIPCIÓN) */}
         <section
           data-nfc-in
           className="rounded-xl border border-white/14 bg-[#082438] p-5"
         >
+          <audio
+            ref={audioRef}
+            src={station.audioSrc}
+            preload="metadata"
+            onLoadedMetadata={(e) => {
+              const dur = e.currentTarget.duration;
+              if (Number.isFinite(dur) && dur > 0) setAudioDurationSec(dur);
+            }}
+            onTimeUpdate={(e) => setAudioCurrentSec(e.currentTarget.currentTime)}
+            onEnded={() => {
+              setIsSpeaking(false);
+              setAudioCurrentSec(0);
+            }}
+            onPause={() => setIsSpeaking(false)}
+          />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={toggleAudioGuide}
-                aria-label={isSpeaking ? "Detener narración" : "Reproducir audioguía"}
+                aria-label={isSpeaking ? "Pausar narración" : "Reproducir audioguía"}
                 className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition ${
                   isSpeaking
                     ? "bg-[#EDB512] text-[#041A29]"
@@ -298,9 +339,10 @@ export function NfcStationExperience({
                     : `Audioguía del sendero · ${station.municipio}`}
                 </p>
                 <p className="text-xs text-white/70">
-                  {audioSupported
-                    ? "Voz en español sin conexión · Ideal para niños, turistas y recorrido bajo el sol"
-                    : "Lee el guion de esta estación ecológica abajo"}
+                  Voz natural colombiana · Disponible sin conexión ·{" "}
+                  <span className="font-mono text-[#F8D86F]">
+                    {formatAudioTime(audioCurrentSec)} / {formatAudioTime(audioDurationSec)}
+                  </span>
                 </p>
               </div>
             </div>
@@ -314,7 +356,15 @@ export function NfcStationExperience({
             </button>
           </div>
 
-          {(showTranscript || isSpeaking || !audioSupported) && (
+          {/* Barra de progreso interactiva */}
+          <div className="mt-3.5 h-1.5 w-full overflow-hidden rounded-full bg-white/12">
+            <div
+              className="h-full rounded-full bg-[#EDB512] transition-all duration-150"
+              style={{ width: `${audioProgressPct}%` }}
+            />
+          </div>
+
+          {(showTranscript || isSpeaking) && (
             <p className="mt-4 border-t border-white/12 pt-3.5 text-sm leading-relaxed text-white/85">
               “{station.audioScript}”
             </p>

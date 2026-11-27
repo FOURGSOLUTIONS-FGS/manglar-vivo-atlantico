@@ -1,0 +1,754 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { useMemo, useState } from "react";
+import {
+  Activity,
+  CheckCircle2,
+  Clock,
+  Download,
+  Mail,
+  Radio,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { classifyAlert } from "@/core/alerts/classifier";
+import type { AlertLevel } from "@/core/alerts/types";
+import { CRA_SECTORS, FACTOR_DOMAINS, REPORTER_PROFILES } from "@/lib/cra-domain";
+import type { MapReportItem } from "@/components/CraMap";
+
+const CraMap = dynamic(() => import("@/components/CraMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[440px] items-center justify-center rounded-xl border border-white/15 bg-[#082438] text-sm font-bold text-[#F8D86F]">
+      Cargando mapa histórico...
+    </div>
+  ),
+});
+
+export interface AnalyticsReport {
+  id: string;
+  tracking_code: string;
+  timestamp_captura: string;
+  latitud: number;
+  longitud: number;
+  zona_manglar: string;
+  municipio: string;
+  sector_id: number;
+  tipo_evento: string;
+  descripcion_ciudadana: string;
+  evidencia_exif: Record<string, unknown> | null;
+  perfil_reportante: string;
+  qr_station_id?: string | null;
+  estado_validacion: string;
+  attention_status: string;
+  nivel_prioridad: string;
+  puntaje_confiabilidad: number;
+  en_zona_por_revisar: boolean;
+  is_simulated_gps: boolean;
+  ai_classification: Record<string, unknown> | null;
+  validations?: Array<{
+    created_at: string;
+    validator_role: string;
+    validator_name: string;
+    decision: string;
+  }>;
+}
+
+export interface AnalyticsDispatch {
+  id: string;
+  tracking_code: string;
+  alert_level: AlertLevel;
+  channel: string;
+  status: string;
+  created_at: string;
+}
+
+const LEVEL_META: Record<AlertLevel, { label: string; color: string }> = {
+  urgente: { label: "Urgente", color: "#C84023" },
+  alta: { label: "Prioritaria", color: "#C98206" },
+  media: { label: "Revisión", color: "#2B8CC4" },
+  verificacion: { label: "828 ha sanas", color: "#16794A" },
+};
+const LEVEL_ORDER: AlertLevel[] = ["urgente", "alta", "media", "verificacion"];
+
+const TIPO_TO_DOMAIN: Record<string, string> = {
+  tala_relleno: "cobertura_suelo",
+  cambio_hidrico: "agua_dosel",
+  contaminacion_residuos: "contaminacion",
+  dano_fauna_especies: "fauna_verificacion",
+  otro: "fauna_verificacion",
+};
+
+const HOUR = 3600e3;
+const DAY = 24 * HOUR;
+
+function relativeTime(ts: number, now: number): string {
+  const diff = Math.max(0, now - ts);
+  if (diff < HOUR) return `hace ${Math.max(1, Math.round(diff / 60000))} min`;
+  if (diff < DAY) return `hace ${Math.round(diff / HOUR)} h`;
+  return `hace ${Math.round(diff / DAY)} d`;
+}
+
+function fmtHours(h: number): string {
+  if (!Number.isFinite(h)) return "—";
+  if (h < 1) return `${Math.round(h * 60)} min`;
+  if (h < 48) return `${h.toFixed(1)} h`;
+  return `${(h / 24).toFixed(1)} d`;
+}
+
+export function AdminAnalytics({
+  reports,
+  dispatches,
+  liveConnected,
+}: {
+  reports: AnalyticsReport[];
+  dispatches: AnalyticsDispatch[];
+  liveConnected: boolean;
+}) {
+  const [range, setRange] = useState<7 | 30 | 90>(90);
+  const [sectorFilter, setSectorFilter] = useState<number | "all">("all");
+
+  const now = useMemo(() => Date.now(), [reports, dispatches, range]);
+
+  const enriched = useMemo(() => {
+    return reports.map((r) => {
+      const exif = r.evidencia_exif ?? null;
+      const ai = r.ai_classification ?? null;
+      const subtype = typeof exif?.subtipo_evento === "string" ? exif.subtipo_evento : null;
+      const subtypeLabel =
+        typeof exif?.subtipo_label === "string" ? exif.subtipo_label : r.tipo_evento;
+      const domain =
+        typeof exif?.factor_dominio === "string"
+          ? exif.factor_dominio
+          : TIPO_TO_DOMAIN[r.tipo_evento] || "fauna_verificacion";
+      const cls = classifyAlert({
+        trackingCode: r.tracking_code,
+        tipoEvento: r.tipo_evento,
+        subtipoEvento: subtype,
+        zonaManglar: r.zona_manglar,
+        municipio: r.municipio,
+        enZonaPorRevisar: r.en_zona_por_revisar,
+        nivelPrioridad: r.nivel_prioridad,
+        puntajeConfiabilidad: r.puntaje_confiabilidad,
+        estadoValidacion: r.estado_validacion,
+        latitud: Number(r.latitud),
+        longitud: Number(r.longitud),
+        aiPhotoValid:
+          ai && typeof ai.es_evidencia_valida === "boolean" ? ai.es_evidencia_valida : null,
+      });
+      const ts = new Date(r.timestamp_captura).getTime();
+      const valTimes = (r.validations || [])
+        .map((v) => new Date(v.created_at).getTime())
+        .filter((t) => Number.isFinite(t))
+        .sort((a, b) => a - b);
+      const firstValHours = valTimes.length > 0 ? (valTimes[0] - ts) / HOUR : null;
+      return { r, ts, cls, domain, subtypeLabel, firstValHours };
+    });
+  }, [reports]);
+
+  const scoped = useMemo(
+    () => enriched.filter((x) => sectorFilter === "all" || x.r.sector_id === sectorFilter),
+    [enriched, sectorFilter]
+  );
+
+  const current = useMemo(
+    () => scoped.filter((x) => now - x.ts <= range * DAY),
+    [scoped, now, range]
+  );
+  const previous = useMemo(
+    () => scoped.filter((x) => now - x.ts > range * DAY && now - x.ts <= 2 * range * DAY),
+    [scoped, now, range]
+  );
+
+  // KPIs
+  const total = current.length;
+  const trendPct =
+    previous.length > 0 ? Math.round(((total - previous.length) / previous.length) * 100) : null;
+  const validatedCount = current.filter(
+    (x) =>
+      ["validado_comunitario", "validado_academico", "alerta_oficial_cra"].includes(
+        x.r.estado_validacion
+      ) || x.r.attention_status === "atendido"
+  ).length;
+  const avgScore =
+    total > 0 ? Math.round(current.reduce((s, x) => s + x.r.puntaje_confiabilidad, 0) / total) : 0;
+  const withVal = current.filter((x) => x.firstValHours != null && x.firstValHours >= 0);
+  const avgFirstVal =
+    withVal.length > 0
+      ? withVal.reduce((s, x) => s + (x.firstValHours as number), 0) / withVal.length
+      : NaN;
+  const slaOk = withVal.filter((x) => (x.firstValHours as number) <= x.cls.slaHours).length;
+  const slaPct = withVal.length > 0 ? Math.round((slaOk / withVal.length) * 100) : 0;
+  const attended = current.filter((x) => x.r.attention_status === "atendido").length;
+
+  // Serie temporal apilada por nivel
+  const bucketCount = range === 90 ? 13 : range;
+  const bucketMs = range === 90 ? 7 * DAY : DAY;
+  const start = now - bucketCount * bucketMs;
+  const buckets = Array.from({ length: bucketCount }, (_, i) => ({
+    start: start + i * bucketMs,
+    counts: { urgente: 0, alta: 0, media: 0, verificacion: 0 } as Record<AlertLevel, number>,
+  }));
+  current.forEach((x) => {
+    const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((x.ts - start) / bucketMs)));
+    buckets[idx].counts[x.cls.level] += 1;
+  });
+  const maxBucket = Math.max(
+    1,
+    ...buckets.map((b) => LEVEL_ORDER.reduce((s, l) => s + b.counts[l], 0))
+  );
+
+  // Dominios y subtipos
+  const domainStats = FACTOR_DOMAINS.map((d) => ({
+    ...d,
+    count: current.filter((x) => x.domain === d.id).length,
+  }));
+  const maxDomain = Math.max(1, ...domainStats.map((d) => d.count));
+  const subtypeMap = new Map<string, number>();
+  current.forEach((x) => subtypeMap.set(x.subtypeLabel, (subtypeMap.get(x.subtypeLabel) || 0) + 1));
+  const topSubtypes = Array.from(subtypeMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+
+  // Sectores
+  const sectorStats = CRA_SECTORS.map((s) => {
+    const list = current.filter((x) => x.r.sector_id === s.id);
+    return {
+      s,
+      count: list.length,
+      urgent: list.filter((x) => x.cls.level === "urgente").length,
+      avg: list.length > 0 ? Math.round(list.reduce((a, x) => a + x.r.puntaje_confiabilidad, 0) / list.length) : 0,
+      last: list.length > 0 ? Math.max(...list.map((x) => x.ts)) : null,
+    };
+  });
+  const maxSector = Math.max(1, ...sectorStats.map((x) => x.count));
+
+  // Embudo de ciclo de vida
+  const funnel = [
+    { label: "Recibidos", value: total },
+    {
+      label: "Mentor local",
+      value: current.filter((x) =>
+        ["validado_comunitario", "validado_academico", "alerta_oficial_cra"].includes(x.r.estado_validacion)
+      ).length,
+    },
+    {
+      label: "Mentor académico",
+      value: current.filter((x) =>
+        ["validado_academico", "alerta_oficial_cra"].includes(x.r.estado_validacion)
+      ).length,
+    },
+    {
+      label: "Alerta oficial CRA",
+      value: current.filter((x) => x.r.estado_validacion === "alerta_oficial_cra").length,
+    },
+    { label: "Atendido y cerrado", value: attended },
+  ];
+
+  // Participación
+  const profileStats = REPORTER_PROFILES.map((p) => ({
+    ...p,
+    count: current.filter((x) => x.r.perfil_reportante === p.id).length,
+  }));
+  const channelStats = [
+    {
+      label: "Estación NFC",
+      count: current.filter((x) => (x.r.qr_station_id || "").startsWith("nfc:")).length,
+      color: "#EDB512",
+    },
+    {
+      label: "Código QR",
+      count: current.filter((x) => x.r.qr_station_id && !x.r.qr_station_id.startsWith("nfc:")).length,
+      color: "#2B8CC4",
+    },
+    { label: "App web / PWA", count: current.filter((x) => !x.r.qr_station_id).length, color: "#16794A" },
+  ];
+
+  // Despachos de correo
+  const dispInRange = dispatches.filter(
+    (d) => now - new Date(d.created_at).getTime() <= range * DAY
+  );
+  const dispStats = {
+    sent: dispInRange.filter((d) => d.status === "enviado").length,
+    sandbox: dispInRange.filter((d) => d.status === "preview_sandbox").length,
+    dedup: dispInRange.filter((d) => d.status === "omitido").length,
+    error: dispInRange.filter((d) => d.status === "error").length,
+  };
+
+  // Línea de tiempo de actividad
+  type Ev = { ts: number; color: string; title: string; detail: string };
+  const events: Ev[] = [];
+  scoped.forEach((x) => {
+    events.push({
+      ts: x.ts,
+      color: LEVEL_META[x.cls.level].color,
+      title: `${x.r.tracking_code} · Nuevo reporte`,
+      detail: `${x.subtypeLabel} · ${x.r.municipio}`,
+    });
+    (x.r.validations || []).forEach((v) => {
+      events.push({
+        ts: new Date(v.created_at).getTime(),
+        color: v.decision === "alerta_oficial" ? "#C84023" : v.decision === "seguimiento_operativo" ? "#16794A" : "#2B8CC4",
+        title: `${x.r.tracking_code} · ${
+          v.decision === "alerta_oficial"
+            ? "Alerta oficial emitida"
+            : v.decision === "seguimiento_operativo"
+            ? "Caso atendido"
+            : "Aval de mentor"
+        }`,
+        detail: v.validator_name,
+      });
+    });
+  });
+  dispatches.forEach((d) => {
+    events.push({
+      ts: new Date(d.created_at).getTime(),
+      color: "#EDB512",
+      title: `${d.tracking_code} · Correo ${d.status === "enviado" ? "enviado" : d.status}`,
+      detail: d.channel,
+    });
+  });
+  const timeline = events
+    .filter((e) => Number.isFinite(e.ts) && e.ts <= now)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 14);
+
+  const mapItems: MapReportItem[] = current.map((x) => ({
+    id: x.r.id,
+    tracking_code: x.r.tracking_code,
+    latitud: Number(x.r.latitud),
+    longitud: Number(x.r.longitud),
+    zona_manglar: x.r.zona_manglar,
+    tipo_evento: x.subtypeLabel,
+    estado_validacion: x.r.estado_validacion,
+    attention_status: x.r.attention_status,
+    nivel_prioridad: x.r.nivel_prioridad,
+    puntaje_confiabilidad: x.r.puntaje_confiabilidad,
+    is_simulated_gps: x.r.is_simulated_gps,
+    descripcion_ciudadana: x.r.descripcion_ciudadana,
+  }));
+
+  const CHART_W = 720;
+  const CHART_H = 210;
+  const PAD_L = 30;
+  const PAD_B = 26;
+  const plotW = CHART_W - PAD_L - 8;
+  const plotH = CHART_H - PAD_B - 10;
+  const slot = plotW / bucketCount;
+  const barW = Math.max(4, slot * 0.66);
+
+  return (
+    <div className="rounded-2xl border border-[#041A29] bg-[#041A29] px-5 pb-10 pt-7 text-white lg:px-8">
+      {/* Barra de control */}
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/12 pb-6">
+        <div>
+          <h2 className="font-display text-2xl font-black text-white sm:text-3xl">
+            Panorama histórico del manglar
+          </h2>
+          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-white/70">
+            <span className="inline-flex items-center gap-1.5 font-bold text-[#86EFAC]">
+              <Radio className="h-3.5 w-3.5" />
+              {liveConnected ? "Datos en vivo (Supabase Realtime)" : "Conectando datos en vivo..."}
+            </span>
+            <span className="text-white/30">·</span>
+            <span>Incluye histórico demo de 90 días marcado SIMULADO (DEMO)</span>
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={sectorFilter}
+            onChange={(e) =>
+              setSectorFilter(e.target.value === "all" ? "all" : Number(e.target.value))
+            }
+            aria-label="Filtrar por sector"
+            className="min-h-[40px] rounded-lg border border-white/20 bg-[#082438] px-3 text-xs font-bold text-white"
+          >
+            <option value="all">Todo el Atlántico</option>
+            {CRA_SECTORS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nombre.split(" – ")[0]}
+              </option>
+            ))}
+          </select>
+          <div className="flex overflow-hidden rounded-lg border border-white/20 bg-[#082438] p-1">
+            {[7, 30, 90].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setRange(d as 7 | 30 | 90)}
+                className={`min-h-[32px] rounded-md px-3 text-xs font-black transition ${
+                  range === d ? "bg-[#EDB512] text-[#041A29]" : "text-white/75 hover:text-white"
+                }`}
+              >
+                {d} días
+              </button>
+            ))}
+          </div>
+          <a
+            href="/api/open-data?format=csv"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-white/20 px-3 text-xs font-bold text-white transition hover:border-[#EDB512]"
+          >
+            <Download className="h-3.5 w-3.5 text-[#F8D86F]" />
+            CSV
+          </a>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 border-b border-white/12 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          {
+            label: "Reportes en el periodo",
+            value: String(total),
+            sub:
+              trendPct == null
+                ? "Sin periodo previo"
+                : `${trendPct >= 0 ? "+" : ""}${trendPct}% vs periodo anterior`,
+            tone: "text-white",
+            trend: trendPct,
+          },
+          {
+            label: "Validados por mentores",
+            value: total > 0 ? `${Math.round((validatedCount / total) * 100)}%` : "0%",
+            sub: `${validatedCount} de ${total}`,
+            tone: "text-[#86EFAC]",
+          },
+          {
+            label: "Confiabilidad promedio",
+            value: `${avgScore}`,
+            sub: "puntos sobre 100",
+            tone: "text-[#F8D86F]",
+          },
+          {
+            label: "Tiempo a 1ª validación",
+            value: fmtHours(avgFirstVal),
+            sub: `${withVal.length} casos medidos`,
+            tone: "text-[#7DD3FC]",
+          },
+          {
+            label: "Cumplimiento SLA",
+            value: `${slaPct}%`,
+            sub: "dentro de la meta por nivel",
+            tone: slaPct >= 80 ? "text-[#86EFAC]" : "text-[#FCA5A5]",
+          },
+          {
+            label: "Casos cerrados",
+            value: String(attended),
+            sub: total > 0 ? `${Math.round((attended / total) * 100)}% del periodo` : "—",
+            tone: "text-white",
+          },
+        ].map((k, idx) => (
+          <div
+            key={k.label}
+            className={`py-5 pr-3 ${idx > 0 ? "lg:border-l lg:border-white/12 lg:pl-4" : ""}`}
+          >
+            <p className="text-[11px] text-white/60">{k.label}</p>
+            <p className={`mt-1 font-display text-3xl font-black tabular-nums ${k.tone}`}>
+              {k.value}
+            </p>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-white/55">
+              {"trend" in k && k.trend != null ? (
+                k.trend >= 0 ? (
+                  <TrendingUp className="h-3 w-3 text-[#F8D86F]" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 text-[#86EFAC]" />
+                )
+              ) : null}
+              {k.sub}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Serie temporal + mapa */}
+      <div className="mt-8 grid gap-6 xl:grid-cols-12">
+        <section className="rounded-xl border border-white/12 bg-[#082438] p-5 xl:col-span-7">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-display text-lg font-black text-white">
+              Reportes por {range === 90 ? "semana" : "día"} y nivel de alerta
+            </h3>
+            <div className="flex flex-wrap gap-3 text-[11px] font-bold text-white/75">
+              {LEVEL_ORDER.map((l) => (
+                <span key={l} className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: LEVEL_META[l].color }} />
+                  {LEVEL_META[l].label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <svg
+            viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+            className="mt-4 h-auto w-full"
+            role="img"
+            aria-label="Serie histórica de reportes apilados por nivel de alerta"
+          >
+            {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+              const y = 10 + plotH * (1 - f);
+              return (
+                <g key={f}>
+                  <line x1={PAD_L} x2={CHART_W - 8} y1={y} y2={y} stroke="rgba(255,255,255,0.08)" />
+                  <text x={PAD_L - 6} y={y + 3} textAnchor="end" fontSize="10" fill="rgba(255,255,255,0.45)">
+                    {Math.round(maxBucket * f)}
+                  </text>
+                </g>
+              );
+            })}
+            {buckets.map((b, i) => {
+              const x = PAD_L + i * slot + (slot - barW) / 2;
+              let yCursor = 10 + plotH;
+              const showLabel = bucketCount <= 14 || i % 5 === 0 || i === bucketCount - 1;
+              const d = new Date(b.start);
+              return (
+                <g key={b.start}>
+                  {LEVEL_ORDER.map((l) => {
+                    const h = (b.counts[l] / maxBucket) * plotH;
+                    if (h <= 0) return null;
+                    yCursor -= h;
+                    return (
+                      <rect
+                        key={l}
+                        x={x}
+                        y={yCursor}
+                        width={barW}
+                        height={h}
+                        rx={2}
+                        fill={LEVEL_META[l].color}
+                      />
+                    );
+                  })}
+                  {showLabel && (
+                    <text
+                      x={x + barW / 2}
+                      y={CHART_H - 8}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="rgba(255,255,255,0.5)"
+                    >
+                      {`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Embudo */}
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <h4 className="text-sm font-black text-white">Embudo de gobernanza (del reporte al cierre)</h4>
+            <div className="mt-3 space-y-2">
+              {funnel.map((f, i) => {
+                const pct = total > 0 ? Math.round((f.value / total) * 100) : 0;
+                return (
+                  <div key={f.label} className="grid grid-cols-12 items-center gap-3 text-xs">
+                    <span className="col-span-4 font-bold text-white/80 sm:col-span-3">{f.label}</span>
+                    <div className="col-span-6 h-6 overflow-hidden rounded bg-white/8 sm:col-span-7">
+                      <div
+                        className="flex h-full items-center rounded px-2 font-mono text-[11px] font-black text-[#041A29] transition-all duration-500"
+                        style={{
+                          width: `${Math.max(pct, f.value > 0 ? 8 : 0)}%`,
+                          backgroundColor: ["#7DD3FC", "#2B8CC4", "#EDB512", "#C84023", "#16794A"][i],
+                        }}
+                      >
+                        {f.value}
+                      </div>
+                    </div>
+                    <span className="col-span-2 text-right font-mono font-bold text-white/70">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3 xl:col-span-5">
+          <div className="flex items-baseline justify-between">
+            <h3 className="font-display text-lg font-black text-white">Mapa histórico de presiones</h3>
+            <span className="font-mono text-xs text-[#F8D86F]">{mapItems.length} puntos</span>
+          </div>
+          <CraMap
+            reports={mapItems}
+            layersVisible={{
+              priorities: false,
+              manglarProbable: true,
+              porRevisar: true,
+              doselSeco: true,
+              groundTruth: false,
+              reports: true,
+            }}
+            heightClass="h-[440px] xl:h-[520px]"
+            darkFrame
+          />
+        </section>
+      </div>
+
+      {/* Sectores + factores */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-12">
+        <section className="rounded-xl border border-white/12 bg-[#082438] p-5 lg:col-span-7">
+          <h3 className="font-display text-lg font-black text-white">Comparativo por sector costero</h3>
+          <div className="mt-4 divide-y divide-white/10 border-y border-white/10">
+            {sectorStats.map((x) => (
+              <div key={x.s.id} className="grid grid-cols-12 items-center gap-3 py-3 text-xs">
+                <div className="col-span-12 sm:col-span-4">
+                  <p className="font-black text-white">{x.s.nombre.split(" – ")[0]}</p>
+                  <p className="text-white/55">
+                    {x.last ? `Último: ${relativeTime(x.last, now)}` : "Sin reportes en el periodo"}
+                  </p>
+                </div>
+                <div className="col-span-7 sm:col-span-5">
+                  <div className="h-2.5 overflow-hidden rounded-[2px] bg-white/10">
+                    <div
+                      className="h-full bg-[#2B8CC4] transition-all duration-500"
+                      style={{ width: `${(x.count / maxSector) * 100}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-white/55">
+                    {x.s.porRevisarHa} ha por revisar · riesgo {x.s.riesgoMedio}
+                  </p>
+                </div>
+                <div className="col-span-5 grid grid-cols-3 gap-1 text-right font-mono sm:col-span-3">
+                  <span className="font-black text-white" title="Reportes">{x.count}</span>
+                  <span className="font-black text-[#FCA5A5]" title="Urgentes">{x.urgent}</span>
+                  <span className="font-black text-[#F8D86F]" title="Confiabilidad promedio">{x.avg}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-right text-[10px] text-white/45">Reportes · Urgentes · Confiabilidad promedio</p>
+        </section>
+
+        <section className="rounded-xl border border-white/12 bg-[#082438] p-5 lg:col-span-5">
+          <h3 className="font-display text-lg font-black text-white">Factores ambientales reportados</h3>
+          <div className="mt-4 space-y-3">
+            {domainStats.map((d) => (
+              <div key={d.id}>
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-white/85">{d.title}</span>
+                  <span className="font-mono text-white">{d.count}</span>
+                </div>
+                <div className="mt-1 h-2.5 overflow-hidden rounded-[2px] bg-white/10">
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{ width: `${(d.count / maxDomain) * 100}%`, backgroundColor: d.accentHex }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <p className="text-xs font-black text-[#F8D86F]">Top casos específicos</p>
+            <ol className="mt-2 space-y-1.5 text-xs">
+              {topSubtypes.map(([label, count], i) => (
+                <li key={label} className="flex items-center justify-between gap-2">
+                  <span className="text-white/80">
+                    <span className="mr-2 font-mono text-white/45">0{i + 1}</span>
+                    {label}
+                  </span>
+                  <span className="font-mono font-black text-white">{count}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      </div>
+
+      {/* Participación + correos + actividad */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-12">
+        <section className="space-y-5 rounded-xl border border-white/12 bg-[#082438] p-5 lg:col-span-4">
+          <div>
+            <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
+              <Users className="h-4 w-4 text-[#F8D86F]" />
+              Quién participa
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {profileStats.map((p) => (
+                <div key={p.id} className="rounded-lg border border-white/10 bg-[#041A29]/60 p-3">
+                  <p className="font-display text-2xl font-black tabular-nums text-white">{p.count}</p>
+                  <p className="text-[11px] font-bold text-white/70">{p.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-black text-white">Canal de entrada</p>
+            <div className="mt-2 flex h-3 overflow-hidden rounded-[2px] bg-white/10">
+              {channelStats.map((c) =>
+                c.count > 0 ? (
+                  <div
+                    key={c.label}
+                    style={{ width: `${(c.count / Math.max(1, total)) * 100}%`, backgroundColor: c.color }}
+                  />
+                ) : null
+              )}
+            </div>
+            <div className="mt-2 space-y-1 text-[11px]">
+              {channelStats.map((c) => (
+                <div key={c.label} className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-white/75">
+                    <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: c.color }} />
+                    {c.label}
+                  </span>
+                  <span className="font-mono font-bold text-white">{c.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-white/12 bg-[#082438] p-5 lg:col-span-3">
+          <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
+            <Mail className="h-4 w-4 text-[#F8D86F]" />
+            Correos de alerta
+          </h3>
+          <div className="mt-4 space-y-3 text-xs">
+            {[
+              { label: "Enviados (Hostinger SMTP)", value: dispStats.sent, icon: CheckCircle2, tone: "text-[#86EFAC]" },
+              { label: "Sandbox / prueba", value: dispStats.sandbox, icon: Activity, tone: "text-[#F8D86F]" },
+              { label: "Deduplicados anti-spam", value: dispStats.dedup, icon: ShieldCheck, tone: "text-[#7DD3FC]" },
+              { label: "Con error", value: dispStats.error, icon: Clock, tone: "text-[#FCA5A5]" },
+            ].map((s) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.label} className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <span className="inline-flex items-center gap-2 text-white/80">
+                    <Icon className={`h-4 w-4 ${s.tone}`} />
+                    {s.label}
+                  </span>
+                  <span className={`font-display text-xl font-black tabular-nums ${s.tone}`}>{s.value}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-white/12 bg-[#082438] p-5 lg:col-span-5">
+          <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
+            <Activity className="h-4 w-4 text-[#F8D86F]" />
+            Línea de tiempo de actividad
+          </h3>
+          <ol className="mt-4 max-h-[340px] space-y-0 overflow-y-auto pr-1">
+            {timeline.map((e, i) => (
+              <li key={`${e.title}-${e.ts}-${i}`} className="relative flex gap-3 pb-3.5">
+                <span className="relative flex flex-col items-center">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: e.color }} />
+                  {i < timeline.length - 1 && <span className="mt-1 w-px flex-1 bg-white/12" />}
+                </span>
+                <div className="min-w-0 flex-1 text-xs">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="truncate font-bold text-white">{e.title}</p>
+                    <span className="shrink-0 font-mono text-[10px] text-white/50">{relativeTime(e.ts, now)}</span>
+                  </div>
+                  <p className="truncate text-white/60">{e.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    </div>
+  );
+}
