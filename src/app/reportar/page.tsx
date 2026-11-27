@@ -87,6 +87,12 @@ function ReportarContent() {
   const initialProfile = (searchParams.get("perfil") as ReporterProfileId) || "habitante_local";
   const initialSchool = searchParams.get("colegio") || "";
   const initialStation = searchParams.get("estacion") || "";
+  const initialOrigin = searchParams.get("origen") || "";
+  const isNfcAccess = initialOrigin.toLowerCase() === "nfc";
+  const activeStationMeta = useMemo(
+    () => QR_STATIONS.find((s) => s.id === initialStation) ?? null,
+    [initialStation]
+  );
   const paramDomain = searchParams.get("dominio") as FactorDomainId | null;
   const paramSubtype = searchParams.get("subtipo") as SubtypeId | null;
 
@@ -274,15 +280,19 @@ function ReportarContent() {
     const st = QR_STATIONS.find((s) => s.id === initialStation);
     if (st) {
       setPerfil("turista");
-      setQrStationId(st.id);
+      setQrStationId(isNfcAccess ? `nfc:${st.id}` : st.id);
       setLat(st.lat);
       setLon(st.lon);
-      setPrecisionM(15);
+      setPrecisionM(10);
       setIsSimulatedGps(false);
-      setGpsStatus(`Estación QR verificada: ${st.nombre}`);
+      setGpsStatus(
+        isNfcAccess
+          ? `Estación NFC física verificada: ${st.nombre}`
+          : `Estación QR verificada: ${st.nombre}`
+      );
       analyzeLocationOffline(st.lat, st.lon).then(setSpatialCtx);
     }
-  }, [initialStation]);
+  }, [initialStation, isNfcAccess]);
 
   const requestRealGps = () => {
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
@@ -853,6 +863,24 @@ function ReportarContent() {
 
       <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
         <OfflineSyncBanner />
+
+        {activeStationMeta && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#16794A]/35 bg-[#16794A]/10 px-4 py-3 text-xs text-[#041A29]">
+            <div>
+              <p className="font-black text-[#115E39]">
+                {isNfcAccess
+                  ? `Punto físico NFC detectado · ${activeStationMeta.nombre}`
+                  : `Estación QR detectada · ${activeStationMeta.nombre}`}
+              </p>
+              <p className="mt-0.5 text-[#041A29]/75">
+                Ubicación exacta en <strong>{activeStationMeta.municipio}</strong> precargada (sin registro y lista en menos de 1 minuto).
+              </p>
+            </div>
+            <span className="rounded bg-[#16794A] px-2.5 py-1 font-mono text-[11px] font-black text-white">
+              {isNfcAccess ? "NFC ACTIVO" : "QR ACTIVO"}
+            </span>
+          </div>
+        )}
 
         {/* PASO 1: 4 DOMINIOS SEPARADOS × 12 FACTORES ESPECÍFICOS */}
         {step === 1 && (

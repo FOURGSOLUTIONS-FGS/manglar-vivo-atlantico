@@ -3,25 +3,75 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { ArrowRight, Camera, MapPin } from "lucide-react";
+import { ArrowRight, Camera, Check, Copy, MapPin, Smartphone } from "lucide-react";
 import { QR_STATIONS } from "@/lib/cra-domain";
 
-export default function TuristaPage() {
-  const [selectedId, setSelectedId] = useState(QR_STATIONS[0].id);
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
-  const station = QR_STATIONS.find((s) => s.id === selectedId) ?? QR_STATIONS[0];
+const SHORT_NFC_CODE: Record<string, string> = {
+  "mallorquin-sendero-1": "1",
+  "puerto-velero-muelle": "2",
+  "juan-acosta-estuario": "3",
+  "totumo-astilleros": "4",
+};
 
-  const stationUrl = `https://manglar-vivo-atlantico.vercel.app/reportar?perfil=turista&estacion=${station.id}`;
+export default function TuristaPage() {
+  const [selectedId, setSelectedId] = useState(QR_STATIONS[2].id);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [nfcMsg, setNfcMsg] = useState<string | null>(null);
+  const [nfcWriting, setNfcWriting] = useState(false);
+
+  const station = QR_STATIONS.find((s) => s.id === selectedId) ?? QR_STATIONS[0];
+  const shortCode = SHORT_NFC_CODE[station.id] || "1";
+  const shortNfcUrl = `https://manglar.arpadura.com/p/${shortCode}`;
 
   useEffect(() => {
-    QRCode.toDataURL(stationUrl, {
+    QRCode.toDataURL(shortNfcUrl, {
       width: 240,
       margin: 1,
       color: { dark: "#041A29", light: "#FFFFFF" },
     })
       .then(setQrDataUrl)
       .catch(() => {});
-  }, [stationUrl]);
+  }, [shortNfcUrl]);
+
+  const handleCopyNfc = () => {
+    navigator.clipboard?.writeText(shortNfcUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 1800);
+  };
+
+  const handleWriteWebNfc = async () => {
+    const w = window as unknown as {
+      NDEFReader?: new () => {
+        write: (msg: { records: Array<{ recordType: string; data: string }> }) => Promise<void>;
+      };
+    };
+
+    if (!w.NDEFReader) {
+      setNfcMsg(
+        "Web NFC directo está disponible en Chrome para Android. En iPhone o PC copia el enlace corto y grábalo con la app gratuita NFC Tools (Escribir → Añadir registro → URL)."
+      );
+      return;
+    }
+
+    setNfcWriting(true);
+    setNfcMsg("Acerca el sticker o tarjeta NFC a la parte trasera del celular...");
+    try {
+      const ndef = new w.NDEFReader();
+      await ndef.write({
+        records: [{ recordType: "url", data: shortNfcUrl }],
+      });
+      setNfcMsg(`¡Listo! Chip NFC grabado con ${shortNfcUrl}. Acércalo a cualquier celular para probar.`);
+    } catch (err) {
+      setNfcMsg(
+        err instanceof Error
+          ? `No se pudo grabar el NFC: ${err.message}`
+          : "Operación cancelada o sin permiso NFC."
+      );
+    } finally {
+      setNfcWriting(false);
+    }
+  };
 
   return (
     <div className="min-h-[calc(100vh-72px)] bg-[#EDF2F6]">
@@ -38,10 +88,10 @@ export default function TuristaPage() {
 
           <div className="space-y-5 lg:col-span-6">
             <h1 className="font-display text-3xl font-black leading-[1.03] text-white sm:text-5xl">
-              Estaciones QR para visitantes del Caribe
+              Estaciones NFC y QR en senderos del Atlántico
             </h1>
             <p className="text-base leading-relaxed text-white/75">
-              En muelles y senderos turísticos instalamos puntos QR sin fricción: cualquier visitante conoce en 30 segundos el ecosistema que está recorriendo y reporta residuos, tala o avistamientos sin crear cuentas.
+              Los tags NFC en PVC resisten sol, lluvia y salinidad sin baterías. Al acercar el celular (o escanear el QR de respaldo), el visitante entra directo a reportar con la ubicación exacta del muelle o sendero ya precargada.
             </p>
 
             <div>
@@ -66,18 +116,18 @@ export default function TuristaPage() {
             </div>
 
             <Link
-              href={`/reportar?perfil=turista&estacion=${station.id}`}
+              href={`/p/${shortCode}`}
               className="inline-flex min-h-[50px] items-center gap-2.5 rounded-lg bg-[#EDB512] px-6 text-sm font-black text-[#041A29] transition hover:bg-[#F8D86F]"
             >
               <Camera className="h-4 w-4" />
-              <span>Reportar desde esta estación ahora</span>
+              <span>Simular toque NFC en esta estación</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Ficha educativa + QR real imprimible */}
+      {/* Ficha educativa + Configurador NFC/QR */}
       <div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-10 md:grid-cols-12 lg:px-10">
         <div className="flex flex-col justify-between space-y-6 rounded-xl border border-[#041A29]/12 bg-white p-6 sm:p-8 md:col-span-7">
           <div>
@@ -93,14 +143,49 @@ export default function TuristaPage() {
             </div>
           </div>
 
-          <div className="border-t border-[#041A29]/10 pt-4 text-xs leading-relaxed text-[#041A29]/70">
-            <strong className="text-[#041A29]">Buenas prácticas de visita:</strong> conserva tus residuos hasta el punto limpio, no alteres raíces ni madrigueras de cangrejo azul y fotografía la fauna sin perseguirla.
+          {/* Bloque de programación de chip NFC físico */}
+          <div className="rounded-xl border border-[#005F96]/25 bg-[#EDF2F6]/75 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="inline-flex items-center gap-2 text-sm font-black text-[#041A29]">
+                <Smartphone className="h-4 w-4 text-[#005F96]" />
+                Enlace ultracorto para chip NFC (32 caracteres · NTAG213/215/216)
+              </p>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <code className="flex-1 rounded-lg border border-[#041A29]/15 bg-white px-3.5 py-2.5 font-mono text-xs font-bold text-[#005F96]">
+                {shortNfcUrl}
+              </code>
+              <button
+                type="button"
+                onClick={handleCopyNfc}
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-lg bg-[#041A29] px-4 text-xs font-black text-white transition hover:bg-[#005F96]"
+              >
+                {copiedUrl ? <Check className="h-4 w-4 text-[#86EFAC]" /> : <Copy className="h-4 w-4 text-[#F8D86F]" />}
+                {copiedUrl ? "Copiado" : "Copiar URL"}
+              </button>
+              <button
+                type="button"
+                disabled={nfcWriting}
+                onClick={handleWriteWebNfc}
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-lg bg-[#005F96] px-4 text-xs font-black text-white transition hover:bg-[#041A29] disabled:opacity-60"
+              >
+                <Smartphone className="h-4 w-4 text-[#F8D86F]" />
+                {nfcWriting ? "Acerca el chip..." : "Grabar NFC (Android)"}
+              </button>
+            </div>
+
+            {nfcMsg && (
+              <p className="mt-2.5 text-xs font-bold text-[#005F96]" role="status">
+                {nfcMsg}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col items-center justify-center rounded-xl border border-[#041A29]/12 bg-white p-6 text-center sm:p-8 md:col-span-5">
           <h3 className="font-display text-lg font-black text-[#041A29]">
-            Código QR escaneable de la estación
+            Código QR de respaldo (misma URL corta)
           </h3>
           <div className="mt-4 rounded-xl border border-[#041A29]/15 bg-white p-4">
             {qrDataUrl ? (
@@ -116,7 +201,7 @@ export default function TuristaPage() {
             )}
           </div>
           <p className="mt-4 max-w-xs text-xs leading-relaxed text-[#041A29]/75">
-            Abre el formulario de reporte precargado con las coordenadas y el perfil visitante en{" "}
+            Funciona igual en iPhone y Android si el visitante prefiere cámara. Precarga coordenadas exactas en{" "}
             <strong className="text-[#041A29]">{station.municipio}</strong>.
           </p>
           <p className="mt-2 inline-flex items-center gap-1.5 font-mono text-xs font-bold text-[#005F96]">
