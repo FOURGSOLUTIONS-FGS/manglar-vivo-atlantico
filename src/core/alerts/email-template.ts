@@ -13,60 +13,71 @@ export function buildAlertEmailSubject(payload: DispatchPayload): string {
   const prefix = isManualTest ? "[PRUEBA] " : "";
   const levelTag =
     classification.level === "urgente"
-      ? "ALERTA URGENTE CRA"
+      ? "URGENTE CRA"
       : classification.level === "alta"
-      ? "ALERTA PRIORITARIA CRA"
+      ? "PRIORITARIA CRA"
       : classification.level === "verificacion"
-      ? "VERIFICACIÓN 828 HA"
-      : "REPORTE EN REVISIÓN";
-  return `${prefix}${levelTag} · ${report.trackingCode} · ${report.municipio}`;
+      ? "828 HA VERIFICADA"
+      : "REVISIÓN CRA";
+  return `${prefix}${levelTag} · ${report.municipio} · ${report.trackingCode}`;
 }
 
+/**
+ * Correo ejecutivo compacto (lectura en 5 segundos en celular) con galería multi-foto (hasta 3 ángulos).
+ */
 export function buildAlertEmailHtml(payload: DispatchPayload): string {
-  const { report, classification, recipientGroup, baseUrl, isManualTest } = payload;
+  const { report, classification, baseUrl, isManualTest } = payload;
   const mapsUrl = `https://www.google.com/maps?q=${report.latitud},${report.longitud}`;
   const adminUrl = `${baseUrl.replace(/\/$/, "")}/admin?code=${encodeURIComponent(report.trackingCode)}`;
-  const craUrl = `${baseUrl.replace(/\/$/, "")}/cra`;
 
-  const recipientsList = classification.recipients
-    .map(
-      (r) =>
-        `<li style="margin:0 0 6px 0;color:#041A29;font-size:13px;"><strong>${escapeHtml(r.name)}</strong> — ${escapeHtml(r.kidRoleLabel)} <span style="color:#005F96;">(${escapeHtml(r.slaLabel)})</span></li>`
+  const photos = Array.from(
+    new Set(
+      [
+        ...(report.evidenciaFotosUrls || []),
+        ...(report.evidenciaFotoUrl ? [report.evidenciaFotoUrl] : []),
+      ].filter(Boolean)
     )
-    .join("");
+  ).slice(0, 3);
 
-  const simulatedBanner = report.isSimulatedGps
-    ? `<div style="margin:16px 0;padding:10px 14px;background:#FEF3C7;border:1px solid #EDB512;border-radius:6px;font-size:12px;color:#041A29;font-weight:700;">⚠ PUNTO MARCADO COMO SIMULADO (DEMO) — Reporte de demostración territorial.</div>`
-    : "";
+  const photoGrid =
+    photos.length > 0
+      ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:14px 0;">
+           <tr>
+             ${photos
+               .map(
+                 (url, i) =>
+                   `<td style="padding:${i === 0 ? "0 4px 0 0" : i === photos.length - 1 ? "0 0 0 4px" : "0 4px"};width:${Math.floor(100 / photos.length)}%;">
+                      <img src="${escapeHtml(url)}" alt="Evidencia ${i + 1}" style="width:100%;height:${photos.length === 1 ? "210px" : "136px"};object-fit:cover;border-radius:8px;border:1px solid #CBD5E1;display:block;" />
+                    </td>`
+               )
+               .join("")}
+           </tr>
+         </table>`
+      : "";
 
-  const photoBlock = report.evidenciaFotoUrl
-    ? `<div style="margin:18px 0;">
-         <img src="${escapeHtml(report.evidenciaFotoUrl)}" alt="Evidencia fotográfica ${escapeHtml(report.trackingCode)}" style="width:100%;max-height:280px;object-fit:cover;border-radius:8px;border:1px solid #CBD5E1;display:block;" />
-       </div>`
-    : "";
+  const recipientsInline = classification.recipients
+    .map((r) => escapeHtml(r.kidRoleLabel))
+    .join(" · ");
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /></head>
 <body style="margin:0;padding:0;background:#EDF2F6;font-family:Lato,'Helvetica Neue',Arial,sans-serif;color:#041A29;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#EDF2F6;padding:24px 12px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#EDF2F6;padding:18px 10px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #CBD5E1;">
-          <!-- Cabecera Institucional CRA -->
+        <table role="presentation" width="540" cellspacing="0" cellpadding="0" style="max-width:540px;width:100%;background:#FFFFFF;border-radius:10px;overflow:hidden;border:1px solid #CBD5E1;">
+          <!-- Barra superior compacta -->
           <tr>
-            <td style="background:#041A29;padding:22px 26px;border-bottom:3px solid #EDB512;">
+            <td style="background:#041A29;padding:16px 20px;border-bottom:3px solid #EDB512;">
               <table width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="color:#FFFFFF;font-size:18px;font-weight:900;letter-spacing:-0.02em;">
-                    MANGLAR VIVO ATLÁNTICO
-                    <div style="color:#F8D86F;font-size:12px;font-weight:700;margin-top:4px;">
-                      Sistema de Alerta Temprana y Gobernanza · CRA Atlántico
-                    </div>
+                  <td style="color:#FFFFFF;font-size:15px;font-weight:900;">
+                    MANGLAR VIVO · CRA ATLÁNTICO
                   </td>
-                  <td align="right" style="vertical-align:top;">
-                    <span style="display:inline-block;background:${classification.colorHex};color:#FFFFFF;font-size:11px;font-weight:900;padding:6px 10px;border-radius:4px;letter-spacing:0.04em;">
-                      ${escapeHtml(classification.badgeLabel)}
+                  <td align="right">
+                    <span style="display:inline-block;background:${classification.colorHex};color:#FFFFFF;font-size:11px;font-weight:900;padding:4px 9px;border-radius:4px;">
+                      ${escapeHtml(classification.badgeLabel)} · &lt;${classification.slaHours}h
                     </span>
                   </td>
                 </tr>
@@ -74,79 +85,50 @@ export function buildAlertEmailHtml(payload: DispatchPayload): string {
             </td>
           </tr>
 
-          <!-- Cuerpo principal -->
+          <!-- Cuerpo conciso -->
           <tr>
-            <td style="padding:26px;">
-              ${
-                isManualTest
-                  ? `<div style="margin:0 0 16px 0;padding:10px 14px;background:#E0F2FE;border:1px solid #005F96;border-radius:6px;font-size:12px;color:#041A29;"><strong>Correo de verificación en vivo</strong> enviado desde el Centro de Mando CRA para comprobar la recepción de alertas urgentes.</div>`
-                  : ""
-              }
-
-              <h1 style="margin:0 0 8px 0;font-size:22px;line-height:1.2;color:#041A29;font-weight:900;">
-                ${escapeHtml(classification.kidFriendlyHeadline)}
+            <td style="padding:20px;">
+              <h1 style="margin:0;font-size:19px;line-height:1.25;color:#041A29;font-weight:900;">
+                ${escapeHtml(report.clasificacionTecnica || classification.kidFriendlyHeadline)}
               </h1>
-              <p style="margin:0 0 18px 0;font-size:14px;line-height:1.55;color:#334155;">
-                ${escapeHtml(classification.kidFriendlyExplanation)}
+              <p style="margin:6px 0 0 0;font-size:13px;color:#475569;">
+                <strong style="color:#005F96;font-family:monospace;">${escapeHtml(report.trackingCode)}</strong>
+                &nbsp;·&nbsp;${escapeHtml(report.municipio)}
+                &nbsp;·&nbsp;Semáforo <strong style="color:${report.puntajeConfiabilidad >= 75 ? "#16794A" : "#C98206"};">${report.puntajeConfiabilidad}/100</strong>
+                &nbsp;·&nbsp;${photos.length} foto${photos.length === 1 ? "" : "s"}
+                ${report.isSimulatedGps ? `&nbsp;·&nbsp;<span style="background:#FEF3C7;color:#7C4F00;padding:1px 6px;border-radius:3px;font-weight:900;font-size:11px;">SIMULADO (DEMO)</span>` : ""}
+                ${isManualTest ? `&nbsp;·&nbsp;<span style="background:#E0F2FE;color:#005F96;padding:1px 6px;border-radius:3px;font-weight:900;font-size:11px;">PRUEBA</span>` : ""}
               </p>
 
-              ${simulatedBanner}
-              ${photoBlock}
+              ${photoGrid}
 
-              <!-- Ficha técnica resumida -->
-              <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:16px 0;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;">
+              <!-- 3 datos esenciales sin relleno -->
+              <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;">
                 <tr>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:12px;color:#64748B;width:38%;">Código de seguimiento</td>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:13px;font-weight:900;color:#005F96;font-family:monospace;">${escapeHtml(report.trackingCode)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;color:#64748B;width:28%;">Sector CRA</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;font-weight:700;color:#041A29;">${escapeHtml(report.zonaManglar)}${report.accionPlan ? ` · ${escapeHtml(report.accionPlan)}` : ""}</td>
                 </tr>
                 <tr>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:12px;color:#64748B;">Sector y municipio</td>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:13px;font-weight:700;color:#041A29;">${escapeHtml(report.zonaManglar)} · ${escapeHtml(report.municipio)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;color:#64748B;">Atienden</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;font-weight:700;color:#005F96;">${recipientsInline}</td>
                 </tr>
                 <tr>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:12px;color:#64748B;">Clasificación técnica</td>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:13px;font-weight:700;color:#041A29;">${escapeHtml(report.clasificacionTecnica || report.tipoEvento)}</td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:12px;color:#64748B;">Semáforo de confiabilidad</td>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:13px;font-weight:900;color:${report.puntajeConfiabilidad >= 75 ? "#16794A" : "#C98206"};">${report.puntajeConfiabilidad}/100 puntos</td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:12px;color:#64748B;">Plan de Manejo / 828 ha</td>
-                  <td style="padding:12px 14px;border-bottom:1px solid #E2E8F0;font-size:13px;color:#041A29;">${escapeHtml(report.accionPlan || "Cobertura costera CRA")}${report.enZonaPorRevisar ? " · Dentro de 828 ha por revisar" : ""}</td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 14px;font-size:12px;color:#64748B;">Coordenadas GPS</td>
-                  <td style="padding:12px 14px;font-size:13px;font-family:monospace;color:#041A29;">${report.latitud}, ${report.longitud}</td>
+                  <td style="padding:8px 12px;color:#64748B;">Nota / GPS</td>
+                  <td style="padding:8px 12px;color:#041A29;">${escapeHtml((report.descripcionCiudadana || "Sin nota adicional").slice(0, 140))} <span style="font-family:monospace;color:#64748B;">(${report.latitud}, ${report.longitud})</span></td>
                 </tr>
               </table>
 
-              <div style="margin:18px 0;padding:14px 16px;background:#EDF2F6;border-radius:8px;">
-                <div style="font-size:12px;font-weight:900;color:#005F96;margin-bottom:8px;">
-                  ¿Quién recibe y atiende esta alerta? (${escapeHtml(recipientGroup)})
-                </div>
-                <ul style="margin:0;padding-left:18px;">
-                  ${recipientsList}
-                </ul>
-              </div>
-
-              ${
-                report.descripcionCiudadana
-                  ? `<p style="margin:14px 0;font-size:13px;line-height:1.5;color:#334155;"><strong>Relato en campo:</strong> ${escapeHtml(report.descripcionCiudadana)}</p>`
-                  : ""
-              }
-
-              <!-- Botones de acción -->
-              <table cellspacing="0" cellpadding="0" style="margin:24px 0 8px 0;">
+              <!-- Botones directos -->
+              <table cellspacing="0" cellpadding="0" style="margin-top:16px;">
                 <tr>
-                  <td style="padding-right:10px;">
-                    <a href="${adminUrl}" style="display:inline-block;background:#005F96;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:900;padding:12px 20px;border-radius:6px;">
-                      Atender en Centro Admin CRA →
+                  <td style="padding-right:8px;">
+                    <a href="${adminUrl}" style="display:inline-block;background:#005F96;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:900;padding:10px 16px;border-radius:6px;">
+                      Atender en /admin →
                     </a>
                   </td>
                   <td>
-                    <a href="${mapsUrl}" style="display:inline-block;background:#EDB512;color:#041A29;text-decoration:none;font-size:13px;font-weight:900;padding:12px 18px;border-radius:6px;">
-                      Abrir ubicación GPS
+                    <a href="${mapsUrl}" style="display:inline-block;background:#EDB512;color:#041A29;text-decoration:none;font-size:13px;font-weight:900;padding:10px 14px;border-radius:6px;">
+                      Ver GPS en Maps
                     </a>
                   </td>
                 </tr>
@@ -154,10 +136,10 @@ export function buildAlertEmailHtml(payload: DispatchPayload): string {
             </td>
           </tr>
 
-          <!-- Pie legal -->
+          <!-- Pie de 1 línea -->
           <tr>
-            <td style="background:#041A29;padding:16px 26px;color:#CBD5E1;font-size:11px;line-height:1.5;">
-              Enviado automáticamente por <a href="${craUrl}" style="color:#F8D86F;text-decoration:none;font-weight:700;">Manglar Vivo Atlántico</a>. Datos personales de ciudadanos protegidos conforme a la Ley 1581 de 2012. Tiempo objetivo de respuesta: ${classification.slaHours} h.
+            <td style="background:#041A29;padding:11px 20px;color:#CBD5E1;font-size:11px;">
+              Manglar Vivo Atlántico · Datos anonimizados Ley 1581 de 2012 · Filtro IA anti-falsos activo.
             </td>
           </tr>
         </table>
@@ -170,18 +152,14 @@ export function buildAlertEmailHtml(payload: DispatchPayload): string {
 
 export function buildAlertEmailText(payload: DispatchPayload): string {
   const { report, classification, baseUrl } = payload;
+  const photosCount = (report.evidenciaFotosUrls?.length || (report.evidenciaFotoUrl ? 1 : 0));
   return [
-    `${classification.badgeLabel} — ${report.trackingCode}`,
-    classification.kidFriendlyHeadline,
-    "",
-    `Sector: ${report.zonaManglar} (${report.municipio})`,
-    `Clasificación: ${report.clasificacionTecnica || report.tipoEvento}`,
-    `Confiabilidad: ${report.puntajeConfiabilidad}/100`,
+    `${classification.badgeLabel} (<${classification.slaHours}h) — ${report.trackingCode}`,
+    `${report.clasificacionTecnica || classification.kidFriendlyHeadline}`,
+    `Sector: ${report.zonaManglar} (${report.municipio}) | Semáforo: ${report.puntajeConfiabilidad}/100 | Fotos: ${photosCount}`,
     `GPS: ${report.latitud}, ${report.longitud}${report.isSimulatedGps ? " [SIMULADO DEMO]" : ""}`,
-    `Relato: ${report.descripcionCiudadana || "Sin nota adicional"}`,
-    `Siguiente paso: ${classification.nextStepSimple}`,
-    "",
-    `Panel Admin CRA: ${baseUrl.replace(/\/$/, "")}/admin?code=${report.trackingCode}`,
-    `Google Maps: https://www.google.com/maps?q=${report.latitud},${report.longitud}`,
+    `Atienden: ${classification.recipients.map((r) => r.kidRoleLabel).join(" · ")}`,
+    `Admin: ${baseUrl.replace(/\/$/, "")}/admin?code=${report.trackingCode}`,
+    `Maps: https://www.google.com/maps?q=${report.latitud},${report.longitud}`,
   ].join("\n");
 }

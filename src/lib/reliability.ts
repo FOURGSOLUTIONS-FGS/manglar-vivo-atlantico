@@ -14,6 +14,7 @@ export interface ReliabilityBreakdown {
 
 export function computeReliabilityScore(input: {
   hasPhoto: boolean;
+  photoCount?: number;
   aiPhotoValid?: boolean | null;
   precisionGpsM?: number | null;
   inCoastalZone: boolean;
@@ -23,9 +24,16 @@ export function computeReliabilityScore(input: {
   nearGroundTruthM?: number | null;
   estadoValidacion?: ValidationStatus;
 }): ReliabilityBreakdown {
-  const hasPhoto = Boolean(input.hasPhoto);
+  const count = input.photoCount ?? (input.hasPhoto ? 1 : 0);
+  const hasPhoto = count > 0 || Boolean(input.hasPhoto);
   const photoRejectedByAi = hasPhoto && input.aiPhotoValid === false;
-  const pPhoto = hasPhoto && !photoRejectedByAi ? 25 : 0;
+
+  // Multi-evidencia: 2+ fotos válidas dan el puntaje completo (25/25); 1 sola foto da 18/25
+  let pPhoto = 0;
+  if (!photoRejectedByAi) {
+    if (count >= 2) pPhoto = 25;
+    else if (hasPhoto) pPhoto = 18;
+  }
 
   const precision = input.precisionGpsM ?? 999;
   const gpsPrecisionOk = !input.isSimulatedGps && precision <= 50;
@@ -43,7 +51,7 @@ export function computeReliabilityScore(input: {
   const hasCorroboration =
     (input.nearbyCorroborations ?? 0) > 0 ||
     (input.nearGroundTruthM != null && input.nearGroundTruthM <= 650);
-  const pCorrob = hasCorroboration ? 15 : 0;
+  const pCorrob = hasCorrobOrFalse(hasCorroboration);
 
   const st = input.estadoValidacion ?? "nuevo";
   let pMentors = 0;
@@ -64,7 +72,7 @@ export function computeReliabilityScore(input: {
     : tier === "alta"
     ? "Confiabilidad Alta · Lista para alerta oficial CRA"
     : tier === "media"
-    ? "Confiabilidad Media · Requiere aval de mentor"
+    ? "Confiabilidad Media · Requiere 2ª foto o aval de mentor"
     : "Confiabilidad Baja · Evidencia incompleta o fuera de zona";
 
   return {
@@ -75,10 +83,14 @@ export function computeReliabilityScore(input: {
       {
         label: photoRejectedByAi
           ? "Foto rechazada por filtro visual IA (0/25)"
-          : "Evidencia fotográfica geolocalizada",
+          : count >= 2
+          ? `Multi-evidencia fotográfica (${count} fotos EXIF)`
+          : hasPhoto
+          ? "1 foto EXIF (añade 2ª toma para 25/25)"
+          : "Sin fotografía adjunta",
         points: pPhoto,
         maxPoints: 25,
-        met: pPhoto > 0,
+        met: pPhoto >= 25,
       },
       {
         label: input.isSimulatedGps
@@ -93,4 +105,8 @@ export function computeReliabilityScore(input: {
       { label: "Doble validación (Comunitario + Académico)", points: pMentors, maxPoints: 20, met: pMentors === 20 },
     ],
   };
+}
+
+function hasCorrobOrFalse(v: boolean): number {
+  return v ? 15 : 0;
 }

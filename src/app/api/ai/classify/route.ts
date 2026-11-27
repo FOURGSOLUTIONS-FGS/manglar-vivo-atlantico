@@ -129,6 +129,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       imageDataUrl,
+      imageDataUrls,
       tipoEvento,
       subtipoEvento,
       factorDominio,
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
       enZonaPorRevisar,
     } = body as {
       imageDataUrl?: string;
+      imageDataUrls?: string[];
       tipoEvento?: string;
       subtipoEvento?: string;
       factorDominio?: string;
@@ -144,6 +146,15 @@ export async function POST(request: Request) {
       zonaManglar?: string;
       enZonaPorRevisar?: boolean;
     };
+
+    const images = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(imageDataUrls) ? imageDataUrls : []),
+          ...(imageDataUrl ? [imageDataUrl] : []),
+        ].filter((u) => typeof u === "string" && u.startsWith("data:image/"))
+      )
+    ).slice(0, 3);
 
     const subtypeMeta = ALL_SUBTYPES.find((s) => s.id === subtipoEvento);
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
@@ -157,7 +168,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const hasImage = Boolean(imageDataUrl && imageDataUrl.startsWith("data:image/"));
+    const hasImage = images.length > 0;
 
     const userContent: Array<Record<string, unknown>> = [
       {
@@ -218,10 +229,10 @@ Contexto reportado por el usuario (SOLO referencia; la imagen manda):
       },
     ];
 
-    if (hasImage && imageDataUrl) {
+    for (const imgUrl of images) {
       userContent.push({
         type: "image_url",
-        image_url: { url: imageDataUrl },
+        image_url: { url: imgUrl },
       });
     }
 

@@ -110,10 +110,23 @@ function ReportarContent() {
   const [qrStationId, setQrStationId] = useState(initialStation);
   const [descripcion, setDescripcion] = useState("");
 
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFromDataset, setPhotoFromDataset] = useState<string | null>(null);
-  const [exifInfo, setExifInfo] = useState<Record<string, unknown> | null>(null);
+  const [photos, setPhotos] = useState<
+    Array<{
+      id: string;
+      file: File;
+      preview: string;
+      datasetLabel?: string;
+      exif: Record<string, unknown>;
+    }>
+  >([]);
+  const [honeypot, setHoneypot] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const formStartedAtRef = useRef<number>(Date.now());
+
+  const photoFile = photos[0]?.file ?? null;
+  const photoPreview = photos[0]?.preview ?? null;
+  const photoFromDataset = photos[0]?.datasetLabel ?? null;
+  const exifInfo = photos[0]?.exif ?? null;
 
   const [datasetSamples, setDatasetSamples] = useState<DatasetSample[]>([]);
   const [showDatasetBank, setShowDatasetBank] = useState(false);
@@ -337,7 +350,14 @@ function ReportarContent() {
     setSpatialCtx(ctx);
   };
 
-  const runVisionAudit = async (preview: string, subtypeOverride?: typeof activeSubtype) => {
+  const runVisionAudit = async (
+    previews: string[],
+    subtypeOverride?: typeof activeSubtype
+  ) => {
+    if (previews.length === 0) {
+      setAiResult(null);
+      return;
+    }
     const sub = subtypeOverride ?? activeSubtype;
     const dom = FACTOR_DOMAINS.find((d) => d.id === sub.domainId) ?? activeDomain;
     setAiLoading(true);
@@ -347,7 +367,8 @@ function ReportarContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageDataUrl: preview,
+          imageDataUrl: previews[0],
+          imageDataUrls: previews.slice(0, 3),
           tipoEvento: sub.eventType,
           subtipoEvento: sub.id,
           factorDominio: dom.title,
@@ -369,59 +390,81 @@ function ReportarContent() {
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoFile(file);
-    setPhotoFromDataset(null);
+    const selectedFiles = Array.from(e.target.files || []).slice(0, Math.max(0, 3 - photos.length));
+    e.target.value = "";
+    if (selectedFiles.length === 0) return;
 
-    try {
-      const parsed = await exifr.parse(file, [
-        "Make",
-        "Model",
-        "DateTimeOriginal",
-        "latitude",
-        "longitude",
-      ]);
-      setExifInfo(
-        parsed
-          ? {
-              make: parsed.Make || null,
-              model: parsed.Model || null,
-              takenAt: parsed.DateTimeOriginal ? String(parsed.DateTimeOriginal) : null,
-              hasGpsExif: Boolean(parsed.latitude && parsed.longitude),
-              originalBytes: file.size,
-            }
-          : { originalBytes: file.size, hasGpsExif: false }
-      );
-    } catch {
-      setExifInfo({ originalBytes: file.size, hasGpsExif: false });
+    const added: typeof photos = [];
+    for (const file of selectedFiles) {
+      let exif: Record<string, unknown> = { originalBytes: file.size, hasGpsExif: false };
+      try {
+        const parsed = await exifr.parse(file, [
+          "Make",
+          "Model",
+          "DateTimeOriginal",
+          "latitude",
+          "longitude",
+        ]);
+        if (parsed) {
+          exif = {
+            make: parsed.Make || null,
+            model: parsed.Model || null,
+            takenAt: parsed.DateTimeOriginal ? String(parsed.DateTimeOriginal) : null,
+            hasGpsExif: Boolean(parsed.latitude && parsed.longitude),
+            originalBytes: file.size,
+          };
+        }
+      } catch {
+        // fallback exif above
+      }
+      const preview = await compressForPreview(file);
+      added.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        preview,
+        exif,
+      });
     }
 
-    const preview = await compressForPreview(file);
-    setPhotoPreview(preview);
-    await runVisionAudit(preview);
+    const nextPhotos = [...photos, ...added].slice(0, 3);
+    setPhotos(nextPhotos);
+    await runVisionAudit(nextPhotos.map((p) => p.preview));
   };
 
   const handleSelectDatasetSample = async (sample: DatasetSample) => {
+    if (photos.length >= 3) return;
     try {
       const res = await fetch(sample.src);
       const blob = await res.blob();
       const file = new File([blob], `${sample.id}.jpg`, { type: "image/jpeg" });
-      setPhotoFile(file);
-      setPhotoFromDataset(sample.label);
-      setExifInfo({
-        source: "dataset_prueba_wikimedia",
-        sampleId: sample.id,
-        originalBytes: blob.size,
-        hasGpsExif: false,
-      });
       const preview = await compressForPreview(file);
-      setPhotoPreview(preview);
-      setShowDatasetBank(false);
-      await runVisionAudit(preview);
+      const nextPhotos = [
+        ...photos,
+        {
+          id: `${sample.id}-${Date.now()}`,
+          file,
+          preview,
+          datasetLabel: sample.label,
+          exif: {
+            source: "dataset_prueba_wikimedia",
+            sampleId: sample.id,
+            originalBytes: blob.size,
+            hasGpsExif: false,
+          },
+        },
+      ].slice(0, 3);
+      setPhotos(nextPhotos);
+      if (nextPhotos.length >= 2) setShowDatasetBank(false);
+      await runVisionAudit(nextPhotos.map((p) => p.preview));
     } catch {
       // ignore
     }
+  };
+
+  const removePhoto = async (photoId: string) => {
+    const nextPhotos = photos.filter((p) => p.id !== photoId);
+    setPhotos(nextPhotos);
+    await runVisionAudit(nextPhotos.map((p) => p.preview));
   };
 
   const applyAiSuggestedSubtype = () => {
@@ -462,7 +505,8 @@ function ReportarContent() {
     aiResult.subtipo_sugerido !== subtypeId;
 
   const reliabilityPreview = computeReliabilityScore({
-    hasPhoto: Boolean(photoFile),
+    hasPhoto: photos.length > 0,
+    photoCount: photos.length,
     aiPhotoValid,
     precisionGpsM: precisionM,
     inCoastalZone: Boolean(spatialCtx?.inCoastalBbox),
@@ -473,6 +517,7 @@ function ReportarContent() {
   });
 
   const handleSubmit = async () => {
+    setSubmitError(null);
     if (lat == null || lon == null) {
       setGpsError(
         "Primero confirma una ubicación con GPS real o toca un punto satelital de demostración."
@@ -483,6 +528,12 @@ function ReportarContent() {
     setSubmitting(true);
     try {
       const clientUuid = crypto.randomUUID();
+      let deviceFp = "web-field";
+      if (typeof window !== "undefined") {
+        deviceFp = localStorage.getItem("manglar_device_fp") || crypto.randomUUID();
+        localStorage.setItem("manglar_device_fp", deviceFp);
+      }
+
       const trackingCode = `MGL-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const priority: "alta" | "media" | "baja" =
         spatialCtx?.inDoselSeco2026 || spatialCtx?.kmzPrioridad === "Alto"
@@ -500,6 +551,7 @@ function ReportarContent() {
         subtipo_evento: activeSubtype.id,
         subtipo_label: activeSubtype.label,
         photo_from_dataset: photoFromDataset,
+        photo_count: photos.length,
       };
 
       const record: PendingReportRecord = {
@@ -507,6 +559,8 @@ function ReportarContent() {
         photo_original: photoFile,
         photo_name: photoFile?.name || "evidencia.jpg",
         photo_preview: photoPreview,
+        photos_original: photos.map((p) => p.file),
+        photos_names: photos.map((p) => p.file.name),
         created_at: Date.now(),
         retries: 0,
         payload: {
@@ -549,6 +603,9 @@ function ReportarContent() {
                 es_manglar_consenso: spatialCtx.nearestGroundTruth.esManglar,
               }
             : null,
+          website_hp: honeypot,
+          form_duration_ms: Date.now() - formStartedAtRef.current,
+          client_fingerprint: deviceFp,
         },
       };
 
@@ -592,7 +649,13 @@ function ReportarContent() {
             factorLabel: `${activeDomain.shortTitle} · ${activeSubtype.label}`,
             classification: alertClassification,
           });
-        } catch {
+        } catch (err) {
+          const typedErr = err as Error & { status?: number; spamCode?: string };
+          // Si fue un rechazo explícito anti-spam (400/409/422/429), mostrar aviso claro y NO encolar
+          if (typedErr.status && typedErr.status >= 400 && typedErr.status < 500) {
+            setSubmitError(typedErr.message || "Envío bloqueado por validación antispam.");
+            return;
+          }
           await enqueueOfflineReport(record);
           playAlertSound(alertClassification.soundProfile);
           setReceipt({
@@ -717,11 +780,11 @@ function ReportarContent() {
                   onClick={() => {
                     setReceipt(null);
                     setStep(1);
-                    setPhotoFile(null);
-                    setPhotoPreview(null);
-                    setPhotoFromDataset(null);
+                    setPhotos([]);
                     setAiResult(null);
                     setDescripcion("");
+                    setSubmitError(null);
+                    formStartedAtRef.current = Date.now();
                   }}
                   className="inline-flex min-h-[48px] items-center rounded-lg px-4 text-sm font-bold text-[#005F96] hover:underline"
                 >
@@ -1056,7 +1119,7 @@ function ReportarContent() {
                 </div>
               )}
 
-              {!photoPreview ? (
+              {photos.length === 0 ? (
                 <label className="relative flex min-h-[240px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-[#EDB512]/65 bg-[#041A29] p-8 text-center text-white transition hover:bg-[#082438]">
                   <span className="pointer-events-none absolute left-4 top-4 h-5 w-5 border-l-2 border-t-2 border-[#EDB512]/80" />
                   <span className="pointer-events-none absolute right-4 top-4 h-5 w-5 border-r-2 border-t-2 border-[#EDB512]/80" />
@@ -1067,47 +1130,85 @@ function ReportarContent() {
                     <Camera className="h-7 w-7" strokeWidth={2} />
                   </span>
                   <span className="font-display text-lg font-black text-white">
-                    Abrir cámara o elegir fotografía
+                    Sube de 1 a 3 fotografías (multi-ángulo)
                   </span>
                   <span className="mt-1.5 max-w-md text-xs text-white/70">
-                    Si subes una foto ajena al manglar (interior, selfie o pantalla), el filtro visual IA la detecta y protege el Semáforo CRA.
+                    1 foto = 18/25 pts · 2 o 3 fotos desde distintos ángulos = 25/25 pts. El filtro IA detecta fotos ajenas al manglar y hashes duplicados.
                   </span>
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     capture="environment"
                     onChange={handlePhotoChange}
                     className="hidden"
                   />
                 </label>
               ) : (
-                <div className="relative overflow-hidden rounded-xl border border-[#041A29]/15 bg-[#041A29]">
-                  <img
-                    src={photoPreview}
-                    alt="Evidencia capturada en campo"
-                    className="h-72 w-full object-cover"
-                  />
-                  {photoFromDataset && (
-                    <span className="absolute left-3 top-3 rounded bg-[#041A29]/85 px-2.5 py-1 font-mono text-[11px] font-bold text-[#F8D86F] backdrop-blur-sm">
-                      DATASET PRUEBA · {photoFromDataset}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+                    <span className="text-[#041A29]">
+                      Evidencia capturada:{" "}
+                      <strong className="font-mono text-[#005F96]">{photos.length}/3 fotos</strong>{" "}
+                      {photos.length >= 2
+                        ? "(Evidencia multi-ángulo completa: 25/25 pts)"
+                        : "(Añade 1 foto más del entorno para subir de 18 a 25 pts)"}
                     </span>
-                  )}
-                  {aiLoading && (
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[#005F96]/25">
-                      <div className="animate-scan h-14 w-full bg-gradient-to-b from-transparent via-[#F8D86F]/75 to-transparent" />
-                    </div>
-                  )}
-                  <label className="absolute bottom-3 right-3 inline-flex min-h-[42px] cursor-pointer items-center gap-2 rounded-lg bg-[#041A29]/90 px-4 text-xs font-black text-white backdrop-blur-sm hover:bg-[#005F96]">
-                    <Camera className="h-3.5 w-3.5 text-[#F8D86F]" />
-                    Cambiar foto
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoChange}
-                      className="hidden"
-                    />
-                  </label>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {photos.map((p, idx) => {
+                      const angleLabels = ["1. Daño principal", "2. Entorno manglar", "3. Segundo ángulo"];
+                      return (
+                        <div
+                          key={p.id}
+                          className="relative overflow-hidden rounded-xl border border-[#041A29]/15 bg-[#041A29]"
+                        >
+                          <img
+                            src={p.preview}
+                            alt={`Evidencia ángulo ${idx + 1}`}
+                            className="h-44 w-full object-cover"
+                          />
+                          {aiLoading && idx === 0 && (
+                            <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[#005F96]/25">
+                              <div className="animate-scan h-12 w-full bg-gradient-to-b from-transparent via-[#F8D86F]/75 to-transparent" />
+                            </div>
+                          )}
+                          <span className="absolute bottom-2 left-2 rounded bg-[#041A29]/85 px-2 py-0.5 font-mono text-[10px] font-bold text-[#F8D86F]">
+                            {angleLabels[idx] || `Foto ${idx + 1}`}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Quitar foto ${idx + 1}`}
+                            onClick={() => removePhoto(p.id)}
+                            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#041A29]/85 text-xs font-black text-white hover:bg-[#C84023]"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {photos.length < 3 && (
+                      <label className="flex h-44 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#005F96]/45 bg-[#EDF2F6] p-4 text-center transition hover:border-[#005F96] hover:bg-white">
+                        <Camera className="mb-2 h-6 w-6 text-[#005F96]" />
+                        <span className="text-xs font-black text-[#041A29]">
+                          + Añadir foto {photos.length + 1} de 3
+                        </span>
+                        <span className="mt-1 text-[11px] text-[#041A29]/65">
+                          Plano abierto o segundo ángulo
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          capture="environment"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1472,6 +1573,27 @@ function ReportarContent() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Honeypot invisible anti-bots */}
+              <input
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                className="pointer-events-none absolute -left-[9999px] h-0 w-0 opacity-0"
+              />
+
+              {submitError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-lg border border-[#C84023]/45 bg-[#C84023]/10 p-3.5 text-xs font-bold text-[#9F2D15]"
+                >
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{submitError}</span>
                 </div>
               )}
 

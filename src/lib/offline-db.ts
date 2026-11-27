@@ -26,6 +26,9 @@ export interface OfflineReportPayload {
   evidencia_exif?: Record<string, unknown> | null;
   ai_classification?: Record<string, unknown> | null;
   ground_truth_match?: Record<string, unknown> | null;
+  website_hp?: string;
+  form_duration_ms?: number;
+  client_fingerprint?: string;
 }
 
 export interface PendingReportRecord {
@@ -34,6 +37,8 @@ export interface PendingReportRecord {
   photo_original: Blob | null;
   photo_name: string;
   photo_preview: string | null;
+  photos_original?: Blob[];
+  photos_names?: string[];
   created_at: number;
   retries: number;
   last_error?: string;
@@ -121,13 +126,29 @@ export async function markReceiptSynced(clientUuid: string): Promise<void> {
 export async function uploadReportToServer(record: PendingReportRecord) {
   const fd = new FormData();
   fd.append("payload", JSON.stringify(record.payload));
-  if (record.photo_original) {
-    fd.append("photo", record.photo_original, record.photo_name || "evidencia.jpg");
-  }
+  const list =
+    record.photos_original && record.photos_original.length > 0
+      ? record.photos_original
+      : record.photo_original
+      ? [record.photo_original]
+      : [];
+  const names =
+    record.photos_names && record.photos_names.length > 0
+      ? record.photos_names
+      : [record.photo_name || "evidencia.jpg"];
+
+  list.slice(0, 3).forEach((blob, idx) => {
+    fd.append(idx === 0 ? "photo" : `photo_${idx}`, blob, names[idx] || `evidencia_${idx + 1}.jpg`);
+  });
+
   const res = await fetch("/api/reports", { method: "POST", body: fd });
   if (!res.ok) {
-    const msg = await res.text().catch(() => `HTTP ${res.status}`);
-    throw new Error(msg);
+    const data = await res.json().catch(() => null);
+    const msg = data?.error || `HTTP ${res.status}`;
+    const err = new Error(msg) as Error & { status?: number; spamCode?: string };
+    err.status = res.status;
+    err.spamCode = data?.spamCode;
+    throw err;
   }
   return res.json();
 }

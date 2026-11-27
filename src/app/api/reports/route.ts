@@ -3,6 +3,11 @@ import { createServerSupabase } from "@/lib/supabase";
 import { computeReliabilityScore } from "@/lib/reliability";
 import { EVENT_CATEGORIES } from "@/lib/cra-domain";
 import { createDefaultAlertDispatcher } from "@/core/alerts/dispatcher";
+import {
+  computeBufferSha256,
+  evaluateReportAntiSpam,
+} from "@/core/security/anti-spam";
+import { getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -27,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   const reportIds = (reports ?? []).map((r) => r.id);
-  let validationsByReport: Record<string, unknown[]> = {};
+  const validationsByReport: Record<string, unknown[]> = {};
   if (reportIds.length > 0) {
     const { data: vals } = await supabase
       .from("report_validations")
@@ -53,7 +58,7 @@ export async function POST(request: Request) {
     const supabase = createServerSupabase();
     const contentType = request.headers.get("content-type") || "";
     let payload: Record<string, unknown> = {};
-    let photoFile: File | null = null;
+    const photoFiles: File[] = [];
 
     if (contentType.includes("multipart/form-data")) {
       const fd = await request.formData();
@@ -61,9 +66,11 @@ export async function POST(request: Request) {
       if (typeof rawPayload === "string") {
         payload = JSON.parse(rawPayload);
       }
-      const f = fd.get("photo");
-      if (f instanceof File && f.size > 0) {
-        photoFile = f;
+      for (const fieldName of ["photo", "photo_0", "photo_1", "photo_2"]) {
+        const f = fd.get(fieldName);
+        if (f instanceof File && f.size > 0 && photoFiles.length < 3) {
+          photoFiles.push(f);
+        }
       }
     } else {
       payload = await request.json();
@@ -76,25 +83,60 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Coordenadas latitud/longitud inválidas." }, { status: 400 });
     }
 
-    // Subir foto original preservando EXIF
-    let photoUrl = typeof payload.evidencia_foto_url === "string" ? payload.evidencia_foto_url : null;
-    if (photoFile) {
-      const ext = (photoFile.name.split(".").pop() || "jpg").replace(/[^a-zA-Z0-9]/g, "");
-      const objectPath = `reports/${clientUuid}/${Date.now()}.${ext}`;
-      const buf = new Uint8Array(await photoFile.arrayBuffer());
+    // Calcular SHA-256 de cada foto antes de guardar para detección anti-spam de duplicados
+    const preparedPhotos: Array<{ file: File; buf: Uint8Array; sha256: string }> = [];
+    for (const f of photoFiles) {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      preparedPhotos.push({ file: f, buf, sha256: computeBufferSha256(buf) });
+    }
+
+    // Escudo Anti-Spam 6 capas (Honeypot, velocidad bot, jurisdicción Atlántico, texto basura, ráfaga IP, foto duplicada)
+    const spamCheck = evaluateReportAntiSpam({
+      ip: getClientIp(request),
+      fingerprint:
+        typeof payload.client_fingerprint === "string" ? payload.client_fingerprint : null,
+      honeypot: typeof payload.website_hp === "string" ? payload.website_hp : null,
+      formDurationMs:
+        typeof payload.form_duration_ms === "number" ? payload.form_duration_ms : null,
+      lat,
+      lon,
+      description:
+        typeof payload.descripcion_ciudadana === "string" ? payload.descripcion_ciudadana : null,
+      photoHashes: preparedPhotos.map((p) => p.sha256),
+    });
+
+    if (!spamCheck.allowed) {
+      return NextResponse.json(
+        { error: spamCheck.reason, spamCode: spamCheck.code },
+        { status: spamCheck.httpStatus }
+      );
+    }
+
+    // Subir hasta 3 fotos originales preservando EXIF
+    const uploadedUrls: string[] = [];
+    if (typeof payload.evidencia_foto_url === "string" && payload.evidencia_foto_url) {
+      uploadedUrls.push(payload.evidencia_foto_url);
+    }
+
+    for (let idx = 0; idx < preparedPhotos.length; idx += 1) {
+      const { file, buf } = preparedPhotos[idx];
+      const ext = (file.name.split(".").pop() || "jpg").replace(/[^a-zA-Z0-9]/g, "");
+      const objectPath = `reports/${clientUuid}/${Date.now()}_${idx}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("report-evidence")
         .upload(objectPath, buf, {
-          contentType: photoFile.type || "image/jpeg",
+          contentType: file.type || "image/jpeg",
           upsert: true,
         });
       if (!upErr) {
         const { data: pub } = supabase.storage.from("report-evidence").getPublicUrl(objectPath);
-        photoUrl = pub.publicUrl;
+        uploadedUrls.push(pub.publicUrl);
       }
     }
 
-    // Cruce autoritativo PostGIS (sector + punto ground-truth más cercano + corroboraciones)
+    const photoUrl = uploadedUrls[0] ?? null;
+
+    // Cruce autoritativo PostGIS (sector + ground-truth + corroboraciones en 500 m)
     const { data: ctx } = await supabase.rpc("resolve_location_context", {
       p_lat: lat,
       p_lon: lon,
@@ -111,7 +153,8 @@ export async function POST(request: Request) {
         : null;
 
     const reliability = computeReliabilityScore({
-      hasPhoto: Boolean(photoUrl),
+      hasPhoto: uploadedUrls.length > 0,
+      photoCount: uploadedUrls.length,
       aiPhotoValid,
       precisionGpsM: payload.precision_gps_m != null ? Number(payload.precision_gps_m) : null,
       inCoastalZone: true,
@@ -125,6 +168,15 @@ export async function POST(request: Request) {
     const trackingCode =
       String(payload.tracking_code || "").trim() ||
       `MGL-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const baseExif = (payload.evidencia_exif as Record<string, unknown> | null) ?? {};
+    const mergedExif: Record<string, unknown> = {
+      ...baseExif,
+      fotos_urls: uploadedUrls,
+      photo_count: uploadedUrls.length,
+      photo_hashes: preparedPhotos.map((p) => p.sha256),
+      antispam_verified: true,
+    };
 
     const row = {
       client_uuid: clientUuid,
@@ -142,7 +194,7 @@ export async function POST(request: Request) {
       tipo_evento: String(payload.tipo_evento || "otro"),
       descripcion_ciudadana: String(payload.descripcion_ciudadana || ""),
       evidencia_foto_url: photoUrl,
-      evidencia_exif: (payload.evidencia_exif as Record<string, unknown>) ?? null,
+      evidencia_exif: mergedExif,
       perfil_reportante: String(payload.perfil_reportante || "habitante_local"),
       school_name: payload.school_name ? String(payload.school_name) : null,
       qr_station_id: payload.qr_station_id ? String(payload.qr_station_id) : null,
@@ -150,12 +202,13 @@ export async function POST(request: Request) {
       estado_validacion: "nuevo",
       attention_status: "pendiente",
       clasificacion_tecnica:
-        (payload.ai_classification as { clasificacion_tecnica?: string } | undefined)?.clasificacion_tecnica ||
+        (payload.ai_classification as { clasificacion_tecnica?: string } | undefined)
+          ?.clasificacion_tecnica ||
         cat?.technicalHint ||
         "Observación ciudadana por validar",
       nivel_prioridad: String(payload.nivel_prioridad || cat?.defaultPriority || "media"),
       puntaje_confiabilidad: reliability.score,
-      ai_classification: (payload.ai_classification as Record<string, unknown>) ?? null,
+      ai_classification: aiObj,
       ground_truth_match: gt,
     };
 
@@ -169,8 +222,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Motor SOLID de clasificación y despacho automático para alertas urgentes
-    const exifObj = (row.evidencia_exif as Record<string, unknown> | null) ?? null;
     const dispatcher = createDefaultAlertDispatcher();
     const alertOutcome = await dispatcher
       .evaluateAndDispatch({
@@ -179,7 +230,7 @@ export async function POST(request: Request) {
           trackingCode: data.tracking_code,
           tipoEvento: data.tipo_evento,
           subtipoEvento:
-            typeof exifObj?.subtipo_evento === "string" ? exifObj.subtipo_evento : null,
+            typeof mergedExif.subtipo_evento === "string" ? mergedExif.subtipo_evento : null,
           zonaManglar: data.zona_manglar,
           municipio: data.municipio,
           sectorId: data.sector_id,
@@ -192,14 +243,14 @@ export async function POST(request: Request) {
           descripcionCiudadana: data.descripcion_ciudadana,
           clasificacionTecnica: data.clasificacion_tecnica,
           evidenciaFotoUrl: data.evidencia_foto_url,
+          evidenciaFotosUrls: uploadedUrls,
           latitud: Number(data.latitud),
           longitud: Number(data.longitud),
           isSimulatedGps: Boolean(data.is_simulated_gps),
           aiPhotoValid,
           timestampCaptura: data.timestamp_captura,
         },
-        baseUrl:
-          process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin,
+        baseUrl: process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin,
       })
       .catch(() => null);
 

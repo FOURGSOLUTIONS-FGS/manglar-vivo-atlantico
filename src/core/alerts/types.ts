@@ -31,6 +31,7 @@ export interface AlertReportInput {
   descripcionCiudadana?: string;
   clasificacionTecnica?: string | null;
   evidenciaFotoUrl?: string | null;
+  evidenciaFotosUrls?: string[];
   latitud: number;
   longitud: number;
   isSimulatedGps?: boolean;

@@ -4,6 +4,7 @@ import { buildAlertEmailSubject } from "./email-template";
 import { ResendNotificationChannel } from "./channels/resend-channel";
 import { SmtpNotificationChannel } from "./channels/smtp-channel";
 import { WebhookNotificationChannel } from "./channels/webhook-channel";
+import { checkUrgentEmailCooldown } from "@/core/security/anti-spam";
 import type {
   AlertAuditRecord,
   AlertAuditRepository,
@@ -35,15 +36,17 @@ export class AlertDispatcher {
     baseUrl?: string;
     forceSend?: boolean;
     isManualTest?: boolean;
+    skipCooldown?: boolean;
   }): Promise<{
     classification: AlertClassification;
     results: ChannelSendResult[];
+    deduplicatedByCooldown?: boolean;
   }> {
     const classification = classifyAlert(params.report);
     const recipientEmail =
       params.recipientEmail?.trim() ||
       process.env.ALERT_URGENT_TO?.trim() ||
-      "alertas-prueba@manglar.fourgsolutions.com";
+      "four4gsolutions@gmail.com";
     const baseUrl =
       params.baseUrl ||
       process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
@@ -63,6 +66,45 @@ export class AlertDispatcher {
     const activeChannels = this.channels.filter((ch) =>
       ch.supports(classification.level, params.forceSend)
     );
+
+    // Anti-bombardeo de correos en el mismo sector/evento (ventana 15 min) para envíos automáticos
+    if (
+      activeChannels.length > 0 &&
+      !params.isManualTest &&
+      !params.forceSend &&
+      !params.skipCooldown &&
+      classification.level === "urgente"
+    ) {
+      const cd = checkUrgentEmailCooldown({
+        sectorId: params.report.sectorId ?? 1,
+        tipoEvento: String(params.report.tipoEvento || "otro"),
+      });
+      if (!cd.shouldSend) {
+        const omitRes: ChannelSendResult = {
+          channel: "anti_spam_cooldown",
+          status: "omitido",
+          recipientEmail,
+          errorDetail: `Alerta deduplicada: ya se envió aviso urgente de este sector (espera ${cd.remainingSec}s).`,
+        };
+        if (this.auditRepo) {
+          await this.auditRepo
+            .save({
+              report_id: params.report.id ?? null,
+              tracking_code: params.report.trackingCode,
+              alert_level: classification.level,
+              channel: omitRes.channel,
+              recipient_group: recipientGroup,
+              recipient_email: recipientEmail,
+              subject: buildAlertEmailSubject(payload),
+              status: "omitido",
+              error_detail: omitRes.errorDetail,
+              metadata: { deduplicated: true, remaining_sec: cd.remainingSec },
+            })
+            .catch(() => {});
+        }
+        return { classification, results: [omitRes], deduplicatedByCooldown: true };
+      }
+    }
 
     const results: ChannelSendResult[] = [];
     for (const channel of activeChannels) {
@@ -87,6 +129,9 @@ export class AlertDispatcher {
               is_manual_test: Boolean(params.isManualTest),
               sla_hours: classification.slaHours,
               municipio: params.report.municipio,
+              photos_count:
+                params.report.evidenciaFotosUrls?.length ||
+                (params.report.evidenciaFotoUrl ? 1 : 0),
             },
           })
           .catch(() => {});
@@ -105,10 +150,6 @@ export function createDefaultAlertDispatcher(): AlertDispatcher {
   );
   const resend = new ResendNotificationChannel();
 
-  // Prioridad de canal de correo:
-  // 1. Hostinger SMTP si está configurado
-  // 2. Resend API si está configurado
-  // 3. SmtpNotificationChannel en modo Ethereal sandbox (preview real inspeccionable)
   const channels: NotificationChannel[] = [];
   if (hasSmtp) {
     channels.push(new SmtpNotificationChannel());

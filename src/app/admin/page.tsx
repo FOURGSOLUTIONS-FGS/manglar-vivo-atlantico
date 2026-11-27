@@ -577,19 +577,52 @@ function AdminCommandContent() {
                     }`}
                   >
                     <div className="grid gap-5 p-5 lg:grid-cols-12">
-                      {/* Foto y código */}
+                      {/* Galería multi-foto y código */}
                       <div className="flex items-start gap-4 lg:col-span-5">
-                        {r.evidencia_foto_url ? (
-                          <img
-                            src={r.evidencia_foto_url}
-                            alt={r.tracking_code}
-                            className="h-24 w-28 shrink-0 rounded-lg border border-[#041A29]/10 object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-lg bg-[#EDF2F6] text-[11px] font-bold text-[#041A29]/45">
-                            Sin foto
-                          </div>
-                        )}
+                        {(() => {
+                          const exifObj = r.evidencia_exif as Record<string, unknown> | null;
+                          const allPhotos = Array.from(
+                            new Set(
+                              [
+                                ...(Array.isArray(exifObj?.fotos_urls)
+                                  ? (exifObj.fotos_urls as string[])
+                                  : []),
+                                ...(r.evidencia_foto_url ? [r.evidencia_foto_url] : []),
+                              ].filter((u) => typeof u === "string" && u.length > 0)
+                            )
+                          ).slice(0, 3);
+                          if (allPhotos.length === 0) {
+                            return (
+                              <div className="flex h-24 w-28 shrink-0 items-center justify-center rounded-lg bg-[#EDF2F6] text-[11px] font-bold text-[#041A29]/45">
+                                Sin foto
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="w-28 shrink-0 space-y-1">
+                              <img
+                                src={allPhotos[0]}
+                                alt={r.tracking_code}
+                                className="h-20 w-28 rounded-lg border border-[#041A29]/10 object-cover"
+                              />
+                              {allPhotos.length > 1 && (
+                                <div className="grid grid-cols-2 gap-1">
+                                  {allPhotos.slice(1, 3).map((url, idx) => (
+                                    <img
+                                      key={url}
+                                      src={url}
+                                      alt={`${r.tracking_code} toma ${idx + 2}`}
+                                      className="h-9 w-full rounded border border-[#041A29]/10 object-cover"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                              <span className="block text-center font-mono text-[10px] font-bold text-[#005F96]">
+                                {allPhotos.length} foto{allPhotos.length === 1 ? "" : "s"} EXIF
+                              </span>
+                            </div>
+                          );
+                        })()}
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">

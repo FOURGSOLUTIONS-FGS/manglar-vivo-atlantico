@@ -86,6 +86,12 @@ export async function POST(request: Request) {
       if (row) {
         const exif = (row.evidencia_exif as Record<string, unknown> | null) ?? null;
         const ai = (row.ai_classification as Record<string, unknown> | null) ?? null;
+        const fotosUrls = Array.isArray(exif?.fotos_urls)
+          ? (exif.fotos_urls as string[]).filter((u) => typeof u === "string")
+          : row.evidencia_foto_url
+          ? [row.evidencia_foto_url]
+          : [];
+
         reportInput = {
           id: row.id,
           trackingCode: row.tracking_code,
@@ -103,6 +109,7 @@ export async function POST(request: Request) {
           descripcionCiudadana: row.descripcion_ciudadana,
           clasificacionTecnica: row.clasificacion_tecnica,
           evidenciaFotoUrl: row.evidencia_foto_url,
+          evidenciaFotosUrls: fotosUrls,
           latitud: Number(row.latitud),
           longitud: Number(row.longitud),
           isSimulatedGps: Boolean(row.is_simulated_gps),
@@ -136,6 +143,10 @@ export async function POST(request: Request) {
                 "Confirmación positiva de manglar sano con plántulas activas en polígono de 828 ha por revisar.",
               clasificacionTecnica: "Etiqueta ground-truth positiva en zona por revisar CRA",
               evidenciaFotoUrl: `${siteOrigin}/dataset/verificacion_828ha.jpg`,
+              evidenciaFotosUrls: [
+                `${siteOrigin}/dataset/verificacion_828ha.jpg`,
+                `${siteOrigin}/dataset/avistamiento_fauna.jpg`,
+              ],
               latitud: 10.7429,
               longitud: -75.2185,
               isSimulatedGps: true,
@@ -158,6 +169,10 @@ export async function POST(request: Request) {
                 "Sedimentos bloqueando el canal mareal principal; agua estancada junto a manglar estresado.",
               clasificacionTecnica: "Obstrucción de conectividad hidrológica e intercambio mareal",
               evidenciaFotoUrl: `${siteOrigin}/dataset/cano_taponado.jpg`,
+              evidenciaFotosUrls: [
+                `${siteOrigin}/dataset/cano_taponado.jpg`,
+                `${siteOrigin}/dataset/dosel_seco.jpg`,
+              ],
               latitud: 10.8719,
               longitud: -75.0972,
               isSimulatedGps: true,
@@ -174,12 +189,17 @@ export async function POST(request: Request) {
               enZonaPorRevisar: true,
               enDoselSeco2026: true,
               nivelPrioridad: "alta",
-              puntajeConfiabilidad: 90,
+              puntajeConfiabilidad: 95,
               estadoValidacion: "alerta_oficial_cra",
               descripcionCiudadana:
-                "Quema activa detectada en borde de manglar con anomalía de sequía 2026 (-0.151). Requiere atención inmediata.",
-              clasificacionTecnica: "Afectación térmica activa en borde de manglar y liberación de carbono",
+                "Quema activa detectada en borde de manglar con dosel seco 2026 (-0.151). Se adjuntan 3 ángulos.",
+              clasificacionTecnica: "Quema activa en borde de manglar — atención inmediata",
               evidenciaFotoUrl: `${siteOrigin}/dataset/quema_incendio.jpg`,
+              evidenciaFotosUrls: [
+                `${siteOrigin}/dataset/quema_incendio.jpg`,
+                `${siteOrigin}/dataset/dosel_seco.jpg`,
+                `${siteOrigin}/dataset/tala_poda.jpg`,
+              ],
               latitud: 10.8719,
               longitud: -75.0972,
               isSimulatedGps: true,

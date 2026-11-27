@@ -225,13 +225,44 @@ export default function ValidarPage() {
 
                 <ReliabilityMeter score={breakdown.score} breakdown={breakdown} />
 
-                {selected.evidencia_foto_url && (
-                  <img
-                    src={selected.evidencia_foto_url}
-                    alt={`Evidencia ${selected.tracking_code}`}
-                    className="h-64 w-full rounded-lg border border-[#041A29]/10 object-cover"
-                  />
-                )}
+                {(() => {
+                  const exifObj = selected.evidencia_exif as Record<string, unknown> | null;
+                  const gallery = Array.from(
+                    new Set(
+                      [
+                        ...(Array.isArray(exifObj?.fotos_urls)
+                          ? (exifObj.fotos_urls as string[])
+                          : []),
+                        ...(selected.evidencia_foto_url ? [selected.evidencia_foto_url] : []),
+                      ].filter((u) => typeof u === "string" && u.length > 0)
+                    )
+                  ).slice(0, 3);
+                  if (gallery.length === 0) return null;
+                  return (
+                    <div
+                      className={`grid gap-2.5 ${
+                        gallery.length === 1
+                          ? "grid-cols-1"
+                          : gallery.length === 2
+                          ? "grid-cols-2"
+                          : "grid-cols-3"
+                      }`}
+                    >
+                      {gallery.map((url, idx) => (
+                        <div key={url} className="relative overflow-hidden rounded-lg border border-[#041A29]/10">
+                          <img
+                            src={url}
+                            alt={`Evidencia ${selected.tracking_code} ángulo ${idx + 1}`}
+                            className="h-56 w-full object-cover"
+                          />
+                          <span className="absolute bottom-2 left-2 rounded bg-[#041A29]/85 px-2 py-0.5 font-mono text-[10px] font-bold text-[#F8D86F]">
+                            Toma {idx + 1}/{gallery.length}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 <div className="grid gap-4 rounded-lg border border-[#041A29]/10 bg-[#EDF2F6]/65 p-4 text-xs sm:grid-cols-2">
                   <div>

@@ -119,8 +119,8 @@ test("Email Template: incluye branding CRA, enlace admin, Google Maps, Ley 1581 
   const html = buildAlertEmailHtml(payload);
   const text = buildAlertEmailText(payload);
 
-  assert.match(subject, /\[PRUEBA\] ALERTA URGENTE CRA · MGL-2026-9999/);
-  assert.match(html, /MANGLAR VIVO ATLÁNTICO/);
+  assert.match(subject, /\[PRUEBA\] URGENTE CRA · Barranquilla · MGL-2026-9999/);
+  assert.match(html, /MANGLAR VIVO · CRA ATLÁNTICO/);
   assert.match(html, /SIMULADO \(DEMO\)/);
   assert.match(html, /Ley 1581 de 2012/);
   assert.match(html, /https:\/\/manglar\.fourgsolutions\.com\/admin\?code=MGL-2026-9999/);
