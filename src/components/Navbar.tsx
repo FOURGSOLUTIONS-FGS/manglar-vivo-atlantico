@@ -68,7 +68,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const navRef = useRef<HTMLDivElement | null>(null);
 
-  const isDarkHeroRoute = pathname === "/";
+  const isDarkHeroRoute = pathname === "/" || pathname.startsWith("/p/");
 
   useEffect(() => {
     const syncState = async () => {
