@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Camera,
   CheckCircle2,
   Compass,
+  Headphones,
   MapPin,
   Radio,
   Satellite,
+  Square,
   Trees,
+  Volume2,
 } from "lucide-react";
 import { gsap, useGSAP } from "@/lib/gsap";
 import {
@@ -32,6 +35,7 @@ export interface StationMeta {
   heroPhoto: string;
   fieldPhotos: Array<{ src: string; caption: string }>;
   urgencyNote: string;
+  audioScript: string;
 }
 
 export interface SectorRecentReport {
@@ -59,6 +63,55 @@ export function NfcStationExperience({
 }: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [viewMode, setViewMode] = useState<"terreno" | "satelite" | "mapa">("terreno");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [audioSupported, setAudioSupported] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setAudioSupported(false);
+      return;
+    }
+    // Precargar lista de voces en Safari/Chrome
+    window.speechSynthesis.getVoices();
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  const toggleAudioGuide = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setShowTranscript(true);
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(station.audioScript);
+    utterance.lang = "es-CO";
+    utterance.rate = 0.96;
+    utterance.pitch = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferred =
+      voices.find((v) => v.lang.toLowerCase() === "es-co") ||
+      voices.find((v) => v.lang.toLowerCase().startsWith("es-mx")) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith("es-419")) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith("es"));
+    if (preferred) utterance.voice = preferred;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
   useGSAP(
     () => {
@@ -167,8 +220,8 @@ export function NfcStationExperience({
               {station.datoClave}
             </p>
 
-            {/* CTA principal inmediato */}
-            <div data-nfc-in className="mt-5 flex flex-wrap items-center gap-3">
+            {/* CTA principal inmediato + Audio-Guía en voz alta */}
+            <div data-nfc-in className="mt-5 flex flex-wrap items-center gap-2.5">
               <Link
                 href={reportBaseHref}
                 className="group inline-flex min-h-[54px] flex-1 items-center justify-between gap-3 rounded-xl bg-[#EDB512] px-5 text-sm font-black text-[#041A29] transition hover:bg-[#F8D86F] sm:flex-none sm:px-6 sm:text-base"
@@ -180,9 +233,31 @@ export function NfcStationExperience({
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Link>
 
+              <button
+                type="button"
+                onClick={toggleAudioGuide}
+                className={`inline-flex min-h-[54px] items-center gap-2 rounded-xl border px-4 text-xs font-black backdrop-blur-md transition sm:text-sm ${
+                  isSpeaking
+                    ? "border-[#EDB512] bg-[#005F96] text-white"
+                    : "border-white/30 bg-[#041A29]/80 text-white hover:border-[#EDB512]"
+                }`}
+              >
+                {isSpeaking ? (
+                  <>
+                    <Square className="h-4 w-4 fill-[#F8D86F] text-[#F8D86F]" />
+                    <span>Detener audioguía</span>
+                  </>
+                ) : (
+                  <>
+                    <Headphones className="h-4 w-4 text-[#F8D86F]" />
+                    <span>Escuchar lugar (20 s)</span>
+                  </>
+                )}
+              </button>
+
               <Link
                 href="/cra"
-                className="inline-flex min-h-[54px] items-center gap-2 rounded-xl border border-white/25 bg-[#041A29]/75 px-4 text-xs font-bold text-white backdrop-blur-sm transition hover:border-[#EDB512]"
+                className="hidden min-h-[54px] items-center gap-2 rounded-xl border border-white/25 bg-[#041A29]/75 px-4 text-xs font-bold text-white backdrop-blur-sm transition hover:border-[#EDB512] sm:inline-flex"
               >
                 <Compass className="h-4 w-4 text-[#F8D86F]" />
                 Mapa completo
@@ -193,6 +268,59 @@ export function NfcStationExperience({
       </section>
 
       <div className="mx-auto max-w-5xl space-y-10 px-5 pt-8 lg:px-8">
+        {/* REPRODUCTOR INCLUSIVO DE AUDIO-GUÍA (OFFLINE + TRANSCRIPCIÓN) */}
+        <section
+          data-nfc-in
+          className="rounded-xl border border-white/14 bg-[#082438] p-5"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleAudioGuide}
+                aria-label={isSpeaking ? "Detener narración" : "Reproducir audioguía"}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition ${
+                  isSpeaking
+                    ? "bg-[#EDB512] text-[#041A29]"
+                    : "bg-[#005F96] text-white hover:bg-[#EDB512] hover:text-[#041A29]"
+                }`}
+              >
+                {isSpeaking ? (
+                  <Square className="h-5 w-5 fill-current" />
+                ) : (
+                  <Volume2 className="h-5 w-5" />
+                )}
+              </button>
+              <div>
+                <p className="font-display text-base font-black text-white">
+                  {isSpeaking
+                    ? `Narrando historia de ${station.municipio}...`
+                    : `Audioguía del sendero · ${station.municipio}`}
+                </p>
+                <p className="text-xs text-white/70">
+                  {audioSupported
+                    ? "Voz en español sin conexión · Ideal para niños, turistas y recorrido bajo el sol"
+                    : "Lee el guion de esta estación ecológica abajo"}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowTranscript((v) => !v)}
+              className="min-h-[38px] rounded-lg border border-white/20 px-3 text-xs font-bold text-[#F8D86F] transition hover:bg-white/10"
+            >
+              {showTranscript ? "Ocultar texto" : "Leer transcripción"}
+            </button>
+          </div>
+
+          {(showTranscript || isSpeaking || !audioSupported) && (
+            <p className="mt-4 border-t border-white/12 pt-3.5 text-sm leading-relaxed text-white/85">
+              “{station.audioScript}”
+            </p>
+          )}
+        </section>
+
         {/* ATAJOS DIRECTOS POR FACTOR (1 TOQUE DESDE EL SENDERO) */}
         <section data-nfc-in>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">

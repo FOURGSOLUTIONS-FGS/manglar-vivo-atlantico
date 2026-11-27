@@ -25,6 +25,7 @@ const STATION_VISUALS: Record<
     shortCode: string;
     heroPhoto: string;
     urgencyNote: string;
+    audioScript: string;
     fieldPhotos: Array<{ src: string; caption: string }>;
   }
 > = {
@@ -33,6 +34,8 @@ const STATION_VISUALS: Record<
     heroPhoto: "/images/turista-qr-sendero.png",
     urgencyNote:
       "Borde urbano de mayor presión junto a Barranquilla · Concentra 70,659 toneladas de carbono azul.",
+    audioScript:
+      "Bienvenido al Sendero Ecológico de la Ciénaga de Mallorquín, entre Barranquilla y Puerto Colombia. Estás frente a la mayor reserva de carbono azul del Atlántico: más de setenta mil toneladas de carbono protegidas por las raíces del mangle rojo. Si miras con calma verás garzas blancas y cangrejos de manglar. Si observas basura, rellenos o algo fuera de lugar, toca el botón amarillo para reportarlo en menos de un minuto.",
     fieldPhotos: [
       { src: "/dataset/verificacion_828ha.jpg", caption: "Canal vivo de mangle rojo" },
       { src: "/dataset/avistamiento_fauna.jpg", caption: "Avifauna costera en raíces" },
@@ -43,6 +46,8 @@ const STATION_VISUALS: Record<
     heroPhoto: "/images/hero-manglar-atlantico.png",
     urgencyNote:
       "Corredor estuarino estratégico para amortiguación de oleaje y pesca artesanal · 105.8 ha por revisar.",
+    audioScript:
+      "Bienvenido al manglar de Puerto Velero y Balboa, en Puerto Colombia. Este corredor de mangle negro es la sala cuna natural de peces y crustáceos que sostienen a los pescadores locales, además de amortiguar la fuerza del oleaje del Caribe. Ayúdanos a cuidar sus caños y reporta cualquier erosión, basura o vertimiento con tu foto.",
     fieldPhotos: [
       { src: "/dataset/avistamiento_fauna.jpg", caption: "Fauna costera registrada" },
       { src: "/dataset/erosion_costera.jpg", caption: "Vigilancia de erosión de borde" },
@@ -53,6 +58,8 @@ const STATION_VISUALS: Record<
     heroPhoto: "/images/hero-manglar-atlantico.png",
     urgencyNote:
       "Sector prioridad crítica 2026: registró la anomalía de sequía más fuerte (-0.151) y riesgo 0.436.",
+    audioScript:
+      "Bienvenido al Estuario Costero de Juan de Acosta y Tubará. Este tramo es prioridad crítica para la CRA porque durante el fenómeno de El Niño de 2026 su dosel registró el mayor estrés por sequía de todo el Atlántico. Tus fotos desde aquí ayudan a confirmar dónde el mangle blanco se está secando y dónde sigue sano. Toca el botón amarillo y ayuda a proteger el Caribe.",
     fieldPhotos: [
       { src: "/dataset/dosel_seco.jpg", caption: "Vigilancia de dosel seco 2026" },
       { src: "/dataset/verificacion_828ha.jpg", caption: "Verificación de manglar sano" },
@@ -63,6 +70,8 @@ const STATION_VISUALS: Record<
     heroPhoto: "/images/escuelas-guardianes.png",
     urgencyNote:
       "Mayor rezago de verificación en campo del departamento: 451.8 ha de las 828 ha por revisar.",
+    audioScript:
+      "Bienvenido al Mirador de la Ciénaga del Totumo y Astilleros, en Piojó. Alrededor de este espejo de agua hay más de cuatrocientas cincuenta hectáreas que el satélite aún necesita confirmar en terreno. Cada foto tuya o de las escuelas de la zona convierte una duda satelital en dato oficial vivo para cuidar el manglar.",
     fieldPhotos: [
       { src: "/dataset/verificacion_828ha.jpg", caption: "Polígonos 828 ha por confirmar" },
       { src: "/dataset/cano_taponado.jpg", caption: "Monitoreo de caños y flujo de agua" },
@@ -87,6 +96,7 @@ export default async function NfcPointLandingPage({
     shortCode: visuals.shortCode,
     heroPhoto: visuals.heroPhoto,
     urgencyNote: visuals.urgencyNote,
+    audioScript: visuals.audioScript,
     fieldPhotos: visuals.fieldPhotos,
   };
 
