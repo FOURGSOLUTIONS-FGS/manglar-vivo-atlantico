@@ -2,167 +2,176 @@
 @import "leaflet/dist/leaflet.css";
 
 :root {
-  --caribe-mar: #005f96;
-  --caribe-profundo: #08334c;
-  --arena-costa: #f7f3ea;
-  --arena-suave: #fcfaf5;
-  --manglar-hoja: #1f7a4c;
-  --sol-dorado: #edb512;
-  --sol-suave: #f8d86f;
-  --alerta-coral: #d94e2a;
+  /* Identidad oficial CRA Atlántico + Territorio Marino */
+  --cra-deep: #041a29;
+  --cra-surface-dark: #082438;
+  --cra-blue: #005f96;
+  --cra-blue-deep: #0b3a58;
+  --cra-gold: #edb512;
+  --cra-gold-soft: #f8d86f;
+  --cra-daylight: #edf2f6;
+  --cra-white: #ffffff;
 
   /* Plan de Manejo CRA */
   --plan-preservacion: #1f78b4;
   --plan-restauracion: #33a02c;
   --plan-recuperacion: #ff7f00;
   --plan-rehabilitacion: #cab2d6;
+
+  /* Semántica de factores de campo */
+  --domain-cobertura: #c84023;
+  --domain-agua: #c98206;
+  --domain-contaminacion: #005f96;
+  --domain-fauna: #16794a;
 }
 
-::selection {
-  background-color: var(--sol-suave);
-  color: var(--caribe-profundo);
+@theme inline {
+  --font-sans: var(--font-lato), "Century Gothic", "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-archivo), var(--font-lato), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 html {
-  background-color: var(--arena-costa);
-  color: var(--caribe-profundo);
-}
-
-html.lenis,
-html.lenis body {
-  height: auto;
-}
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
+  background-color: var(--cra-deep);
+  color: var(--cra-deep);
+  scroll-behavior: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 95, 150, 0.55) transparent;
 }
 
 body {
-  font-family: var(--font-lato), "Lato", "Century Gothic", sans-serif;
-  background-color: var(--arena-costa);
-  color: var(--caribe-profundo);
-  overflow-x: hidden;
+  background-color: var(--cra-daylight);
+  color: var(--cra-deep);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  caret-color: var(--cra-blue);
+}
+
+::selection {
+  background: var(--cra-gold);
+  color: var(--cra-deep);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(4, 26, 41, 0.06);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 95, 150, 0.45);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cra-blue);
 }
 
 .font-display {
-  font-family: var(--font-fraunces), Georgia, serif;
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Textura costera sutil sin penalizar GPU */
-.coastal-grain::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 40;
-  opacity: 0.022;
-  background-image: radial-gradient(#08334c 0.6px, transparent 0.6px);
-  background-size: 14px 14px;
+a {
+  text-underline-offset: 0.2em;
 }
 
-/* Double-Bezel Haptic Card */
-.bezel-outer {
-  padding: 6px;
-  border-radius: 1.85rem;
-  background: rgba(8, 51, 76, 0.045);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 22px 48px -26px rgba(8, 51, 76, 0.24);
-  border: 1px solid rgba(8, 51, 76, 0.08);
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--cra-gold);
+  outline-offset: 2px;
 }
 
-.bezel-inner {
-  border-radius: calc(1.85rem - 6px);
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
-}
-
-.ease-coastal {
-  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-/* Marquee Caribeño continuo */
-@keyframes coastal-marquee {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
-.marquee-track {
-  display: flex;
-  width: max-content;
-  animation: coastal-marquee 34s linear infinite;
-}
-
-.marquee-track:hover {
-  animation-play-state: paused;
-}
-
-/* Escaneo IA sobre foto */
-@keyframes ai-scan-sweep {
+/* Visor óptico para escaneo con IA */
+@keyframes scanBeam {
   0% {
     transform: translateY(-100%);
   }
   100% {
-    transform: translateY(400%);
+    transform: translateY(420%);
   }
 }
 
 .animate-scan {
-  animation: ai-scan-sweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: scanBeam 1.9s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
-/* Pulso radar GPS / Realtime */
-@keyframes radar-pulse {
+/* Pulso Realtime en Sala CRA */
+@keyframes livePulse {
   0% {
-    transform: scale(0.92);
-    opacity: 0.75;
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(1.9);
+    opacity: 0;
   }
   100% {
-    transform: scale(2.1);
+    transform: scale(1.9);
     opacity: 0;
   }
 }
 
-.pulse-ring {
-  animation: radar-pulse 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+.live-pulse {
+  animation: livePulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
-/* Ken Burns fallback cinematográfico */
-@keyframes ken-burns-slow {
-  0% {
-    transform: scale(1) translate3d(0, 0, 0);
-  }
-  50% {
-    transform: scale(1.06) translate3d(-1%, -0.5%, 0);
-  }
-  100% {
-    transform: scale(1) translate3d(0, 0, 0);
-  }
-}
-
-.ken-burns {
-  animation: ken-burns-slow 24s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
+/* Leaflet overrides para identidad CRA */
 .leaflet-container {
-  font-family: var(--font-lato), "Lato", sans-serif;
-  border-radius: 1.25rem;
+  font-family: var(--font-sans) !important;
   z-index: 1;
+  background: #041a29;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 10px !important;
+  background: #041a29 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 14px 32px rgba(4, 26, 41, 0.42) !important;
+}
+
+.leaflet-popup-tip {
+  background: #041a29 !important;
+}
+
+.leaflet-popup-close-button {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.leaflet-control-zoom a {
+  background: #041a29 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #005f96 !important;
+}
+
+/* Reducción de movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .animate-scan,
+  .live-pulse {
+    animation: none !important;
+  }
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

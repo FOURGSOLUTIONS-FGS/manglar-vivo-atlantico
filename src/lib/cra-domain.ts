@@ -5,6 +5,26 @@ export type EventTypeId =
   | "dano_fauna_especies"
   | "otro";
 
+export type FactorDomainId =
+  | "cobertura_suelo"
+  | "agua_dosel"
+  | "contaminacion"
+  | "fauna_verificacion";
+
+export type SubtypeId =
+  | "tala_poda"
+  | "relleno_obra"
+  | "quema_incendio"
+  | "cano_taponado"
+  | "dosel_seco"
+  | "erosion_costera"
+  | "residuos_solidos"
+  | "vertimiento_agua"
+  | "derrame_combustible"
+  | "fauna_amenaza"
+  | "avistamiento_fauna"
+  | "verificacion_828ha";
+
 export type ReporterProfileId =
   | "habitante_local"
   | "estudiante_escuela"
@@ -50,6 +70,7 @@ export interface CraSectorInfo {
   id: number;
   nombre: string;
   municipioPrincipal: string;
+  satImage: string;
   referenciaHa: number;
   seguraHa: number;
   porRevisarHa: number;
@@ -68,6 +89,7 @@ export const CRA_SECTORS: CraSectorInfo[] = [
     id: 1,
     nombre: "Mallorquín – Bocas de Ceniza",
     municipioPrincipal: "Barranquilla / Puerto Colombia",
+    satImage: "/media/sat/z1_img.jpg",
     referenciaHa: 347.6,
     seguraHa: 261.7,
     porRevisarHa: 168.3,
@@ -84,6 +106,7 @@ export const CRA_SECTORS: CraSectorInfo[] = [
     id: 2,
     nombre: "Puerto Colombia – Balboa – Puerto Velero",
     municipioPrincipal: "Puerto Colombia",
+    satImage: "/media/sat/z2_img.jpg",
     referenciaHa: 91.4,
     seguraHa: 59.7,
     porRevisarHa: 105.8,
@@ -100,6 +123,7 @@ export const CRA_SECTORS: CraSectorInfo[] = [
     id: 3,
     nombre: "Tubará – Juan de Acosta",
     municipioPrincipal: "Juan de Acosta / Tubará",
+    satImage: "/media/sat/z3_img.jpg",
     referenciaHa: 45.4,
     seguraHa: 26.9,
     porRevisarHa: 102.3,
@@ -116,6 +140,7 @@ export const CRA_SECTORS: CraSectorInfo[] = [
     id: 4,
     nombre: "Totumo – Astilleros – Galerazamba",
     municipioPrincipal: "Piojó / Luruaco",
+    satImage: "/media/sat/z4_img.jpg",
     referenciaHa: 290.5,
     seguraHa: 116.4,
     porRevisarHa: 451.8,
@@ -143,6 +168,187 @@ export const CRA_GLOBAL_METRICS = {
   planManglarFueraHa: 221,
 };
 
+export interface FactorSubtypeMeta {
+  id: SubtypeId;
+  domainId: FactorDomainId;
+  eventType: EventTypeId;
+  label: string;
+  description: string;
+  technicalHint: string;
+  defaultPriority: "alta" | "media" | "baja";
+  quickTags: string[];
+}
+
+export interface FactorDomainMeta {
+  id: FactorDomainId;
+  title: string;
+  shortTitle: string;
+  summary: string;
+  accentHex: string;
+  subtypes: FactorSubtypeMeta[];
+}
+
+export const FACTOR_DOMAINS: FactorDomainMeta[] = [
+  {
+    id: "cobertura_suelo",
+    title: "Cobertura y Suelo",
+    shortTitle: "Cobertura",
+    summary: "Intervenciones directas sobre árboles, raíces o borde costero.",
+    accentHex: "#C84023",
+    subtypes: [
+      {
+        id: "tala_poda",
+        domainId: "cobertura_suelo",
+        eventType: "tala_relleno",
+        label: "Tala o corte de mangle",
+        description: "Árboles cortados, motosierra o extracción de madera.",
+        technicalHint: "Pérdida directa de cobertura arbórea por tala o aprovechamiento no autorizado",
+        defaultPriority: "alta",
+        quickTags: ["Corte reciente", "Motosierra o herramientas", "Ramas acumuladas"],
+      },
+      {
+        id: "relleno_obra",
+        domainId: "cobertura_suelo",
+        eventType: "tala_relleno",
+        label: "Relleno, cercado u obra",
+        description: "Arena, escombros, cercas o maquinaria entrando a la ronda.",
+        technicalHint: "Ocupación ilegal de ronda hídrica por relleno o infraestructura",
+        defaultPriority: "alta",
+        quickTags: ["Relleno con arena/tierra", "Cerca nueva", "Maquinaria en el borde"],
+      },
+      {
+        id: "quema_incendio",
+        domainId: "cobertura_suelo",
+        eventType: "tala_relleno",
+        label: "Quema o incendio",
+        description: "Fuego activo, humo denso o suelo calcinado junto al manglar.",
+        technicalHint: "Afectación térmica de cobertura y liberación de carbono del suelo",
+        defaultPriority: "alta",
+        quickTags: ["Humo o fuego activo", "Vegetación quemada", "Riesgo de propagación"],
+      },
+    ],
+  },
+  {
+    id: "agua_dosel",
+    title: "Agua y Salud del Dosel",
+    shortTitle: "Agua y Dosel",
+    summary: "Flujo mareal, caños, salinidad y sequía observada en 2026.",
+    accentHex: "#C98206",
+    subtypes: [
+      {
+        id: "cano_taponado",
+        domainId: "agua_dosel",
+        eventType: "cambio_hidrico",
+        label: "Caño o canal taponado",
+        description: "Sedimentos, diques o bloqueos que impiden circular el agua.",
+        technicalHint: "Obstrucción de conectividad hidrológica e intercambio mareal",
+        defaultPriority: "alta",
+        quickTags: ["Agua estancada", "Sedimentos bloqueando", "Dique o barrera"],
+      },
+      {
+        id: "dosel_seco",
+        domainId: "agua_dosel",
+        eventType: "cambio_hidrico",
+        label: "Mangle seco o amarillento",
+        description: "Hojas amarillas, ramas secas o árboles muriendo de pie.",
+        technicalHint: "Estrés hídrico/salino y desecamiento de dosel (anomalía 2026)",
+        defaultPriority: "alta",
+        quickTags: ["Hojas amarillas", "Árboles secos en pie", "Suelo agrietado"],
+      },
+      {
+        id: "erosion_costera",
+        domainId: "agua_dosel",
+        eventType: "cambio_hidrico",
+        label: "Erosión o caída de borde",
+        description: "Oleaje socavando raíces o retroceso visible de la orilla.",
+        technicalHint: "Erosión costera y desestabilización de franja protectora de manglar",
+        defaultPriority: "media",
+        quickTags: ["Raíces desenterradas", "Árboles caídos", "Avance del mar"],
+      },
+    ],
+  },
+  {
+    id: "contaminacion",
+    title: "Contaminación y Residuos",
+    shortTitle: "Contaminación",
+    summary: "Presión por basuras, aguas residuales o sustancias químicas.",
+    accentHex: "#005F96",
+    subtypes: [
+      {
+        id: "residuos_solidos",
+        domainId: "contaminacion",
+        eventType: "contaminacion_residuos",
+        label: "Basura y plásticos",
+        description: "Plásticos atrapados en raíces, escombros o puntos críticos.",
+        technicalHint: "Presión antrópica por acumulación de residuos sólidos costeros",
+        defaultPriority: "media",
+        quickTags: ["Plásticos en raíces", "Escombros", "Botadero en borde"],
+      },
+      {
+        id: "vertimiento_agua",
+        domainId: "contaminacion",
+        eventType: "contaminacion_residuos",
+        label: "Vertimiento o agua turbia",
+        description: "Descarga de aguas negras, espumas, mal olor o cambio de color.",
+        technicalHint: "Vertimiento de aguas residuales y alteración fisicoquímica del estuario",
+        defaultPriority: "alta",
+        quickTags: ["Tubería descargando", "Espuma u olor fuerte", "Agua muy oscura"],
+      },
+      {
+        id: "derrame_combustible",
+        domainId: "contaminacion",
+        eventType: "contaminacion_residuos",
+        label: "Aceite o combustible",
+        description: "Mancha brillante en el agua cerca a embarcaciones o muelles.",
+        technicalHint: "Contaminación por hidrocarburos en espejo de agua estuarino",
+        defaultPriority: "alta",
+        quickTags: ["Mancha aceitosa", "Olor a combustible", "Zona de lanchas"],
+      },
+    ],
+  },
+  {
+    id: "fauna_verificacion",
+    title: "Fauna y Verificación Viva",
+    shortTitle: "Fauna y 828 ha",
+    summary: "Protección de especies, bioindicadores y validación de las 828 ha.",
+    accentHex: "#16794A",
+    subtypes: [
+      {
+        id: "fauna_amenaza",
+        domainId: "fauna_verificacion",
+        eventType: "dano_fauna_especies",
+        label: "Fauna herida o extracción ilegal",
+        description: "Aves o peces afectados, trampas o captura ilegal de cangrejo azul.",
+        technicalHint: "Perturbación o extracción ilegal de fauna asociada al ecosistema",
+        defaultPriority: "alta",
+        quickTags: ["Animal herido", "Redes o trampas", "Extracción de cangrejo azul"],
+      },
+      {
+        id: "avistamiento_fauna",
+        domainId: "fauna_verificacion",
+        eventType: "otro",
+        label: "Avistamiento de fauna viva",
+        description: "Registro de aves, cangrejo azul, peces o fauna sana del manglar.",
+        technicalHint: "Bioindicador positivo de salud ecosistémica y biodiversidad",
+        defaultPriority: "baja",
+        quickTags: ["Garza o ave costera", "Cangrejo azul", "Alevinos / peces"],
+      },
+      {
+        id: "verificacion_828ha",
+        domainId: "fauna_verificacion",
+        eventType: "otro",
+        label: "Verificar manglar sano (828 ha)",
+        description: "Confirmar cobertura viva o seguimiento de plántulas en campo.",
+        technicalHint: "Etiqueta ground-truth ciudadana para las 828 ha por revisar CRA",
+        defaultPriority: "baja",
+        quickTags: ["Manglar sano", "Plántulas creciendo", "Zona por revisar"],
+      },
+    ],
+  },
+];
+
+export const ALL_SUBTYPES: FactorSubtypeMeta[] = FACTOR_DOMAINS.flatMap((d) => d.subtypes);
+
 export interface EventCategoryMeta {
   id: EventTypeId;
   label: string;
@@ -154,46 +360,46 @@ export interface EventCategoryMeta {
 export const EVENT_CATEGORIES: EventCategoryMeta[] = [
   {
     id: "tala_relleno",
-    label: "Tala, quema o relleno",
-    shortDesc: "Corte de mangle, maquinaria, rellenos o cercados en el borde.",
+    label: "Cobertura y Suelo",
+    shortDesc: "Tala, relleno, obra o quema en el manglar.",
     technicalHint: "Pérdida de cobertura arbórea / ocupación ilegal de ronda",
     defaultPriority: "alta",
   },
   {
     id: "cambio_hidrico",
-    label: "Caño taponado o sequía",
-    shortDesc: "Árboles amarillentos/secos, agua estancada o cierre de caños.",
+    label: "Agua y Salud del Dosel",
+    shortDesc: "Caño taponado, mangle seco o erosión costera.",
     technicalHint: "Alteración hidrológica / estrés salino del dosel",
     defaultPriority: "alta",
   },
   {
     id: "contaminacion_residuos",
-    label: "Basura o vertimientos",
-    shortDesc: "Plásticos, escombros, aceites o aguas residuales en la ciénaga.",
+    label: "Contaminación y Residuos",
+    shortDesc: "Basura, vertimientos o derrames de aceite.",
     technicalHint: "Presión antrópica por residuos sólidos o vertimiento",
     defaultPriority: "media",
   },
   {
     id: "dano_fauna_especies",
-    label: "Daño a fauna o especies",
-    shortDesc: "Aves heridas, extracción ilegal de cangrejo azul o pesca dañina.",
+    label: "Amenaza a Fauna",
+    shortDesc: "Fauna herida, redes o extracción ilegal.",
     technicalHint: "Perturbación de fauna asociada al ecosistema de manglar",
-    defaultPriority: "media",
+    defaultPriority: "alta",
   },
   {
     id: "otro",
-    label: "Verificación o hallazgo positivo",
-    shortDesc: "Confirmar manglar vivo en zona por revisar, regeneración o avistamiento.",
+    label: "Verificación y Biodiversidad",
+    shortDesc: "Manglar sano (828 ha por revisar) o avistamiento positivo.",
     technicalHint: "Etiqueta ground-truth ciudadana / validación de cobertura",
     defaultPriority: "baja",
   },
 ];
 
 export const REPORTER_PROFILES: { id: ReporterProfileId; label: string; hint: string }[] = [
-  { id: "habitante_local", label: "Habitante o pescador", hint: "Comunidad costera del Atlántico" },
-  { id: "estudiante_escuela", label: "Estudiante / Escuela", hint: "Modo Escuelas y PRAES" },
-  { id: "turista", label: "Turista / Visitante QR", hint: "Reporte rápido en senderos" },
-  { id: "actor_registrado", label: "Actor registrado CRA", hint: "ONG, academia o entidad" },
+  { id: "habitante_local", label: "Vecino / Pescador", hint: "Comunidad costera" },
+  { id: "estudiante_escuela", label: "Estudiante", hint: "Modo Escuelas PRAES" },
+  { id: "turista", label: "Turista", hint: "Visitante en sendero" },
+  { id: "actor_registrado", label: "Entidad / ONG", hint: "Actor registrado CRA" },
 ];
 
 export interface DemoFieldPoint {
@@ -201,6 +407,7 @@ export interface DemoFieldPoint {
   label: string;
   municipio: string;
   sectorId: number;
+  satImage: string;
   lat: number;
   lon: number;
   contextNote: string;
@@ -212,36 +419,40 @@ export const DEMO_FIELD_POINTS: DemoFieldPoint[] = [
     label: "Juan de Acosta — Borde crítico cerca a escuela",
     municipio: "Juan de Acosta",
     sectorId: 3,
+    satImage: "/media/sat/z3_img.jpg",
     lat: 10.8719,
     lon: -75.0972,
-    contextNote: "Sector con mayor sequía del dosel (-0.151) y mayor riesgo medio (0.436).",
+    contextNote: "Anomalía de sequía -0.151 · Riesgo 0.436",
   },
   {
     id: "demo-mallorquin",
     label: "Ciénaga de Mallorquín — Sendero occidental",
     municipio: "Barranquilla",
     sectorId: 1,
+    satImage: "/media/sat/z1_img.jpg",
     lat: 11.0448,
     lon: -74.8632,
-    contextNote: "Mayor reserva de carbono (70,659 tC) y presión urbana (0.776).",
+    contextNote: "70,659 tC carbono · Presión urbana 0.776",
   },
   {
     id: "demo-puerto-velero",
     label: "Puerto Velero / Balboa — Caño estuarino",
     municipio: "Puerto Colombia",
     sectorId: 2,
+    satImage: "/media/sat/z2_img.jpg",
     lat: 10.9531,
     lon: -75.0021,
-    contextNote: "Zona de restauración hidrológica y 105.8 ha por revisar.",
+    contextNote: "Restauración hidrológica · 105.8 ha por revisar",
   },
   {
     id: "demo-totumo",
     label: "Ciénaga del Totumo — Zona de 451.8 ha por revisar",
     municipio: "Piojó",
     sectorId: 4,
+    satImage: "/media/sat/z4_img.jpg",
     lat: 10.7429,
     lon: -75.2185,
-    contextNote: "Mayor rezago de verificación en campo del Atlántico (451.8 ha).",
+    contextNote: "Mayor rezago de verificación en campo",
   },
 ];
 

@@ -3,7 +3,7 @@
 // 1. App Shell + GeoJSON ligeros cacheados para abrir en frío en modo avión.
 // 2. /api/* y supabase.co SIEMPRE van directo a red (IndexedDB gestiona mutaciones offline).
 // 3. Bump obligatorio de VERSION cuando cambien assets críticos o lógica de captura.
-const VERSION = "manglar-vivo-v2";
+const VERSION = "manglar-vivo-v4";
 
 const SHELL_ASSETS = [
   "/",
@@ -15,12 +15,15 @@ const SHELL_ASSETS = [
   "/participacion",
   "/manifest.json",
   "/media/logo_cra_blanco.png",
+  "/media/sat/z1_img.jpg",
+  "/media/sat/z2_img.jpg",
+  "/media/sat/z3_img.jpg",
+  "/media/sat/z4_img.jpg",
   "/images/pwa-icon-192.png",
   "/images/pwa-icon-512.png",
   "/images/hero-manglar-atlantico.png",
   "/images/escuelas-guardianes.png",
   "/images/turista-qr-sendero.png",
-  "/images/mascota-cangrejo-vigia.png",
   "/data/geo/cra_sectors.geojson",
   "/data/geo/cra_mangrove_layers.geojson",
   "/data/geo/coastal_priorities_light.geojson",

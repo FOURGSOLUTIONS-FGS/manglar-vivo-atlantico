@@ -2,35 +2,99 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Camera,
   ChevronDown,
   Compass,
   GraduationCap,
-  MapPin,
-  RefreshCw,
+  Home,
+  Map as MapIcon,
   ShieldCheck,
-  Trees,
   Users,
   WifiOff,
+  RefreshCw,
 } from "lucide-react";
 import { flushOfflineQueue, getPendingReports } from "@/lib/offline-db";
 
+const COMMUNITY_LINKS = [
+  {
+    href: "/escuelas",
+    label: "Modo Escuelas PRAES",
+    desc: "Adopción de las 828 ha por revisar y cierre de ciclo",
+    icon: GraduationCap,
+  },
+  {
+    href: "/turista",
+    label: "Estaciones QR Turistas",
+    desc: "Pasaporte eco-turístico y reporte en 60 segundos",
+    icon: Compass,
+  },
+  {
+    href: "/participacion",
+    label: "Actores, Checklists y MGA",
+    desc: "Registro Ley 1581, Res. 1263/2018 y borrador CO₂e",
+    icon: Users,
+  },
+];
+
+const CRA_LINKS = [
+  {
+    href: "/cra",
+    label: "Sala Operativa Satelital",
+    desc: "Mapa en vivo Supabase Realtime y datos abiertos",
+    icon: MapIcon,
+  },
+  {
+    href: "/validar",
+    label: "Consola de Mentores",
+    desc: "Doble validación comunitaria + académica y semáforo",
+    icon: ShieldCheck,
+  },
+];
+
 export function Navbar() {
   const pathname = usePathname();
-  const isHome = pathname === "/";
-  const [scrolled, setScrolled] = useState(false);
   const [online, setOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
-  const [syncing, setSyncing] = useState(false);
   const [openMenu, setOpenMenu] = useState<"comunidad" | "cra" | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const navRef = useRef<HTMLDivElement | null>(null);
+
+  const isDarkHeroRoute = pathname === "/";
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const syncState = async () => {
+      setOnline(navigator.onLine);
+      const pending = await getPendingReports().catch(() => []);
+      setPendingCount(pending.length);
+    };
+
+    const handleOnline = async () => {
+      setOnline(true);
+      await flushOfflineQueue().catch(() => {});
+      await syncState();
+    };
+
+    const handleOffline = () => setOnline(false);
+
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 36);
+    };
+
+    syncState();
+    handleScroll();
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("manglar-queue-changed", syncState);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("manglar-queue-changed", syncState);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -38,264 +102,212 @@ export function Navbar() {
   }, [pathname]);
 
   useEffect(() => {
-    const updateStatus = async () => {
-      setOnline(navigator.onLine);
-      try {
-        const p = await getPendingReports();
-        setPendingCount(p.length);
-      } catch {
-        setPendingCount(0);
+    const handleOutside = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
       }
     };
-    updateStatus();
-    window.addEventListener("online", updateStatus);
-    window.addEventListener("offline", updateStatus);
-    window.addEventListener("manglar-queue-changed", updateStatus);
-    return () => {
-      window.removeEventListener("online", updateStatus);
-      window.removeEventListener("offline", updateStatus);
-      window.removeEventListener("manglar-queue-changed", updateStatus);
-    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  const handleManualSync = async () => {
-    if (!online || syncing) return;
-    setSyncing(true);
-    try {
-      await flushOfflineQueue();
-      const p = await getPendingReports();
-      setPendingCount(p.length);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const darkGlass = isHome && !scrolled;
+  const solidHeader = !isDarkHeroRoute || scrolled || openMenu !== null;
 
   return (
     <>
-      <header className="fixed inset-x-0 top-3.5 z-30 mx-auto max-w-6xl px-4">
-        <div
-          className={`mx-auto flex w-full items-center justify-between gap-3 rounded-full border px-4 py-2 transition-all duration-500 ease-coastal backdrop-blur-xl ${
-            darkGlass
-              ? "border-white/20 bg-[#08334C]/55 text-white shadow-[0_18px_40px_-16px_rgba(0,0,0,0.45)]"
-              : "border-[#08334C]/10 bg-white/92 text-[#08334C] shadow-[0_14px_34px_-18px_rgba(8,51,76,0.3)]"
-          }`}
-        >
-          <Link
-            href="/"
-            className="flex items-center gap-2.5 rounded-full pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EDB512]"
-          >
+      <header
+        ref={navRef}
+        className={`fixed left-0 right-0 top-0 z-50 h-[72px] transition-colors duration-300 ${
+          solidHeader
+            ? "border-b border-white/12 bg-[#041A29]/95 backdrop-blur-md"
+            : "border-b border-white/10 bg-gradient-to-b from-[#041A29]/80 to-transparent"
+        }`}
+      >
+        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-4 px-5 lg:px-10">
+          {/* Identidad institucional CRA */}
+          <Link href="/" className="flex items-center gap-3 text-white">
             <img
-              src={darkGlass ? "/media/logo_cra_blanco.png" : "/images/pwa-icon-192.png"}
-              alt="CRA Atlántico · Manglar Vivo"
-              className={`h-9 w-auto rounded-full object-contain ${
-                darkGlass ? "max-w-[46px]" : "w-9 ring-2 ring-[#005F96]/15"
-              }`}
+              src="/media/logo_cra_blanco.png"
+              alt="CRA Atlántico"
+              className="h-9 w-auto object-contain"
             />
-            <div className="leading-tight">
-              <span
-                className={`block text-[10px] font-black uppercase tracking-[0.16em] ${
-                  darkGlass ? "text-[#F8D86F]" : "text-[#005F96]"
-                }`}
-              >
-                CRA Atlántico
+            <span className="h-6 w-px bg-white/20" aria-hidden="true" />
+            <span className="flex flex-col leading-none">
+              <span className="font-display text-sm font-black tracking-tight text-white">
+                MANGLAR VIVO
               </span>
-              <span className="font-display block text-sm font-bold">
-                Manglar Vivo
+              <span className="mt-1 text-[11px] font-bold text-[#F8D86F]">
+                Atlántico · Ciencia Ciudadana
               </span>
-            </div>
+            </span>
           </Link>
 
-          {/* Navegación limpia de 4 pilares */}
-          <nav className="relative hidden items-center gap-1 lg:flex" aria-label="Navegación principal">
+          {/* Navegación principal desktop */}
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Navegación principal">
             <Link
               href="/"
-              className={`rounded-full px-3.5 py-2 text-xs font-bold transition ${
-                pathname === "/"
-                  ? darkGlass
-                    ? "bg-white/20 text-white"
-                    : "bg-[#005F96] text-white"
-                  : darkGlass
-                  ? "text-white/85 hover:bg-white/10"
-                  : "text-[#08334C]/80 hover:bg-[#08334C]/5"
+              className={`inline-flex min-h-[44px] items-center px-3.5 text-sm font-bold transition ${
+                pathname === "/" ? "text-[#F8D86F]" : "text-white/85 hover:text-white"
               }`}
             >
-              Explorar
+              Territorio
             </Link>
 
-            <Link
-              href="/reportar"
-              className={`rounded-full px-3.5 py-2 text-xs font-bold transition ${
-                pathname === "/reportar"
-                  ? "bg-[#005F96] text-white"
-                  : darkGlass
-                  ? "text-white/85 hover:bg-white/10"
-                  : "text-[#08334C]/80 hover:bg-[#08334C]/5"
-              }`}
-            >
-              Reportar
-            </Link>
-
+            {/* Dropdown Comunidad */}
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setOpenMenu((m) => (m === "comunidad" ? null : "comunidad"))}
-                className={`inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-xs font-bold transition ${
-                  ["/escuelas", "/turista", "/participacion"].includes(pathname)
-                    ? darkGlass
-                      ? "bg-white/20 text-white"
-                      : "bg-[#005F96] text-white"
-                    : darkGlass
-                    ? "text-white/85 hover:bg-white/10"
-                    : "text-[#08334C]/80 hover:bg-[#08334C]/5"
+                aria-expanded={openMenu === "comunidad"}
+                onClick={() =>
+                  setOpenMenu((prev) => (prev === "comunidad" ? null : "comunidad"))
+                }
+                className={`inline-flex min-h-[44px] items-center gap-2 px-3.5 text-sm font-bold transition ${
+                  ["/escuelas", "/turista", "/participacion"].includes(pathname) ||
+                  openMenu === "comunidad"
+                    ? "text-[#F8D86F]"
+                    : "text-white/85 hover:text-white"
                 }`}
               >
                 <span>Comunidad</span>
-                <ChevronDown className="h-3.5 w-3.5" />
+                <span
+                  aria-hidden="true"
+                  className={`inline-block h-1.5 w-1.5 bg-[#EDB512] transition-transform duration-200 ${
+                    openMenu === "comunidad" ? "rotate-45 scale-125" : "rotate-0"
+                  }`}
+                />
+                <ChevronDown
+                  className={`h-3.5 w-3.5 opacity-70 transition-transform ${
+                    openMenu === "comunidad" ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {openMenu === "comunidad" && (
-                <div className="absolute left-0 top-12 w-64 rounded-2xl border border-[#08334C]/12 bg-white p-2 text-[#08334C] shadow-xl">
-                  <Link
-                    href="/escuelas"
-                    className="flex items-center gap-3 rounded-xl p-2.5 text-xs hover:bg-[#F7F3EA]"
-                  >
-                    <GraduationCap className="h-4 w-4 text-[#1F7A4C]" />
-                    <div>
-                      <p className="font-black">Modo Escuelas</p>
-                      <p className="text-[11px] text-[#08334C]/65">Reto 828 ha y cierre de ciclo</p>
-                    </div>
-                  </Link>
-                  <Link
-                    href="/turista"
-                    className="flex items-center gap-3 rounded-xl p-2.5 text-xs hover:bg-[#F7F3EA]"
-                  >
-                    <Compass className="h-4 w-4 text-[#005F96]" />
-                    <div>
-                      <p className="font-black">Turistas QR</p>
-                      <p className="text-[11px] text-[#08334C]/65">Pasaporte de senderos sin registro</p>
-                    </div>
-                  </Link>
-                  <Link
-                    href="/participacion"
-                    className="flex items-center gap-3 rounded-xl p-2.5 text-xs hover:bg-[#F7F3EA]"
-                  >
-                    <Users className="h-4 w-4 text-[#EDB512]" />
-                    <div>
-                      <p className="font-black">Actores y Proyectos</p>
-                      <p className="text-[11px] text-[#08334C]/65">Checklists CRA y MGA / CO₂e</p>
-                    </div>
-                  </Link>
+                <div className="absolute left-0 top-[60px] w-80 border border-white/12 border-t-2 border-t-[#EDB512] bg-[#041A29] p-2 shadow-2xl">
+                  {COMMUNITY_LINKS.map((item) => {
+                    const Icon = item.icon;
+                    const active = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-start gap-3 rounded-lg p-3 transition ${
+                          active ? "bg-[#005F96] text-white" : "text-white/90 hover:bg-white/8"
+                        }`}
+                      >
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#F8D86F]" strokeWidth={1.9} />
+                        <span>
+                          <span className="block text-sm font-bold leading-snug">{item.label}</span>
+                          <span className="mt-0.5 block text-xs text-white/65">{item.desc}</span>
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
+            {/* Dropdown Sala CRA */}
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setOpenMenu((m) => (m === "cra" ? null : "cra"))}
-                className={`inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-xs font-bold transition ${
-                  ["/cra", "/validar"].includes(pathname)
-                    ? darkGlass
-                      ? "bg-white/20 text-white"
-                      : "bg-[#005F96] text-white"
-                    : darkGlass
-                    ? "text-white/85 hover:bg-white/10"
-                    : "text-[#08334C]/80 hover:bg-[#08334C]/5"
+                aria-expanded={openMenu === "cra"}
+                onClick={() => setOpenMenu((prev) => (prev === "cra" ? null : "cra"))}
+                className={`inline-flex min-h-[44px] items-center gap-2 px-3.5 text-sm font-bold transition ${
+                  ["/cra", "/validar"].includes(pathname) || openMenu === "cra"
+                    ? "text-[#F8D86F]"
+                    : "text-white/85 hover:text-white"
                 }`}
               >
-                <span>Sala CRA</span>
-                <ChevronDown className="h-3.5 w-3.5" />
+                <span>Gobernanza CRA</span>
+                <span
+                  aria-hidden="true"
+                  className={`inline-block h-1.5 w-1.5 bg-[#EDB512] transition-transform duration-200 ${
+                    openMenu === "cra" ? "rotate-45 scale-125" : "rotate-0"
+                  }`}
+                />
+                <ChevronDown
+                  className={`h-3.5 w-3.5 opacity-70 transition-transform ${
+                    openMenu === "cra" ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {openMenu === "cra" && (
-                <div className="absolute left-0 top-12 w-64 rounded-2xl border border-[#08334C]/12 bg-white p-2 text-[#08334C] shadow-xl">
-                  <Link
-                    href="/cra"
-                    className="flex items-center gap-3 rounded-xl p-2.5 text-xs hover:bg-[#F7F3EA]"
-                  >
-                    <MapPin className="h-4 w-4 text-[#005F96]" />
-                    <div>
-                      <p className="font-black">Panel Operativo CRA</p>
-                      <p className="text-[11px] text-[#08334C]/65">Mapa satelital, Realtime y CSV</p>
-                    </div>
-                  </Link>
-                  <Link
-                    href="/validar"
-                    className="flex items-center gap-3 rounded-xl p-2.5 text-xs hover:bg-[#F7F3EA]"
-                  >
-                    <ShieldCheck className="h-4 w-4 text-[#1F7A4C]" />
-                    <div>
-                      <p className="font-black">Consola de Mentores</p>
-                      <p className="text-[11px] text-[#08334C]/65">Doble validación y Semáforo</p>
-                    </div>
-                  </Link>
+                <div className="absolute right-0 top-[60px] w-80 border border-white/12 border-t-2 border-t-[#EDB512] bg-[#041A29] p-2 shadow-2xl">
+                  {CRA_LINKS.map((item) => {
+                    const Icon = item.icon;
+                    const active = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-start gap-3 rounded-lg p-3 transition ${
+                          active ? "bg-[#005F96] text-white" : "text-white/90 hover:bg-white/8"
+                        }`}
+                      >
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#F8D86F]" strokeWidth={1.9} />
+                        <span>
+                          <span className="block text-sm font-bold leading-snug">{item.label}</span>
+                          <span className="mt-0.5 block text-xs text-white/65">{item.desc}</span>
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
           </nav>
 
-          <div className="flex items-center gap-2">
+          {/* Estado offline + CTA primario */}
+          <div className="flex items-center gap-2.5">
             {!online ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D94E2A] px-3 py-1.5 text-xs font-black text-white">
-                <WifiOff className="h-3.5 w-3.5" strokeWidth={1.8} />
-                <span className="hidden sm:inline">Offline</span>
+              <span
+                role="status"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#C84023]/60 bg-[#C84023]/20 px-3 py-1 text-xs font-bold text-[#FCA5A5]"
+              >
+                <WifiOff className="h-3.5 w-3.5" />
+                Offline{pendingCount > 0 ? ` (${pendingCount})` : ""}
               </span>
             ) : pendingCount > 0 ? (
-              <button
-                type="button"
-                onClick={handleManualSync}
-                disabled={syncing}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#EDB512] px-3 py-1.5 text-xs font-black text-[#08334C] transition active:scale-95"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`}
-                  strokeWidth={2}
-                />
-                <span>Sincronizar ({pendingCount})</span>
-              </button>
-            ) : (
               <span
-                className={`hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold sm:inline-flex ${
-                  darkGlass
-                    ? "bg-white/15 text-white"
-                    : "bg-[#1F7A4C]/10 text-[#1F7A4C]"
-                }`}
+                role="status"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#EDB512]/60 bg-[#EDB512]/20 px-3 py-1 text-xs font-bold text-[#F8D86F]"
               >
-                <span className="h-2 w-2 rounded-full bg-[#33A02C]" />
-                Modo campo listo
+                <RefreshCw className="h-3.5 w-3.5" />
+                {pendingCount} por subir
               </span>
-            )}
+            ) : null}
 
             <Link
               href="/reportar"
-              className="group inline-flex items-center gap-2 rounded-full bg-[#EDB512] py-1.5 pl-4 pr-1.5 text-xs font-black text-[#08334C] shadow-md transition-all duration-300 ease-coastal hover:bg-[#F8D86F] active:scale-[0.98]"
+              className={`inline-flex min-h-[44px] items-center gap-2 rounded-lg px-4 text-sm font-black transition ${
+                pathname === "/reportar"
+                  ? "bg-white text-[#041A29]"
+                  : "bg-[#EDB512] text-[#041A29] hover:bg-[#F8D86F]"
+              }`}
             >
+              <Camera className="h-4 w-4" strokeWidth={2.2} />
               <span>Reportar</span>
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#08334C] text-white transition-transform duration-300 group-hover:scale-105">
-                <Camera className="h-3.5 w-3.5" strokeWidth={2} />
-              </span>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Espaciador automático en rutas internas para no quedar bajo la isla fija */}
-      {!isHome && <div className="h-20 md:h-24" aria-hidden="true" />}
+      {/* Espaciador para rutas con fondo claro */}
+      {!isDarkHeroRoute && <div className="h-[72px]" aria-hidden="true" />}
 
-      {/* Barra inferior táctil en móvil (>= 52px tap targets) */}
+      {/* Barra inferior táctil en campo (móvil) */}
       <nav
-        aria-label="Menú móvil"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-[#08334C]/10 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] pt-1.5 backdrop-blur-xl lg:hidden"
+        aria-label="Navegación móvil de campo"
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/12 bg-[#041A29] pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1">
+        <div className="grid h-[64px] grid-cols-4">
           {[
-            { href: "/", label: "Inicio", icon: Trees },
+            { href: "/", label: "Inicio", icon: Home },
             { href: "/reportar", label: "Reportar", icon: Camera },
             { href: "/escuelas", label: "Escuelas", icon: GraduationCap },
-            { href: "/turista", label: "Turista", icon: Compass },
-            { href: "/cra", label: "CRA", icon: MapPin },
+            { href: "/cra", label: "Sala CRA", icon: MapIcon },
           ].map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;
@@ -303,13 +315,11 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex min-h-[52px] flex-col items-center justify-center rounded-2xl px-1 py-1 text-[11px] font-bold transition ${
-                  active
-                    ? "bg-[#005F96]/12 text-[#005F96]"
-                    : "text-[#08334C]/70 hover:text-[#08334C]"
+                className={`flex flex-col items-center justify-center gap-1 text-[11px] font-bold transition ${
+                  active ? "bg-[#005F96] text-[#F8D86F]" : "text-white/75 hover:text-white"
                 }`}
               >
-                <Icon className="mb-0.5 h-5 w-5" strokeWidth={active ? 2.1 : 1.6} />
+                <Icon className="h-5 w-5" strokeWidth={2} />
                 <span>{item.label}</span>
               </Link>
             );

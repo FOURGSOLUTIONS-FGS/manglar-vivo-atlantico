@@ -48,38 +48,38 @@ export function OfflineSyncBanner({ onSynced }: { onSynced?: () => void }) {
   return (
     <div
       role="status"
-      className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
+      className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${
         !online
-          ? "border-[#D94E2A]/30 bg-[#D94E2A]/10 text-[#08334C]"
+          ? "border-[#C84023]/35 bg-[#C84023]/10 text-[#041A29]"
           : pending.length > 0
-          ? "border-[#EDB512]/50 bg-[#F8D86F]/30 text-[#08334C]"
-          : "border-[#1F7A4C]/30 bg-[#1F7A4C]/10 text-[#1F7A4C]"
+          ? "border-[#EDB512]/60 bg-[#F8D86F]/30 text-[#041A29]"
+          : "border-[#16794A]/35 bg-[#16794A]/10 text-[#16794A]"
       }`}
     >
       <div className="flex items-center gap-2.5">
         {!online ? (
-          <CloudOff className="h-5 w-5 shrink-0 text-[#D94E2A]" strokeWidth={1.7} />
+          <CloudOff className="h-5 w-5 shrink-0 text-[#C84023]" strokeWidth={1.8} />
         ) : pending.length > 0 ? (
-          <RefreshCw className="h-5 w-5 shrink-0 text-[#005F96]" strokeWidth={1.7} />
+          <RefreshCw className="h-5 w-5 shrink-0 text-[#005F96]" strokeWidth={1.8} />
         ) : (
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#1F7A4C]" strokeWidth={1.7} />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#16794A]" strokeWidth={1.8} />
         )}
         <div>
           {!online ? (
             <p className="font-bold">
-              Sin conexión a internet · Modo campo activo
-              {pending.length > 0 ? ` (${pending.length} en cola local)` : ""}
+              Sin conexión · Modo campo offline activo
+              {pending.length > 0 ? ` (${pending.length} en cola IndexedDB)` : ""}
             </p>
           ) : pending.length > 0 ? (
             <p className="font-bold">
-              Tienes {pending.length} reporte(s) guardado(s) en el dispositivo listo(s) para subir.
+              {pending.length} reporte(s) en cola local listos para sincronizar con la CRA.
             </p>
           ) : (
             <p className="font-bold">{lastMsg}</p>
           )}
           {!online && (
-            <p className="text-xs text-[#08334C]/75">
-              Tus fotos originales (con EXIF), GPS y cruce espacial se guardan en IndexedDB y subirán automáticamente al reconectar.
+            <p className="text-xs text-[#041A29]/75">
+              Fotos originales (con EXIF), GPS y cruce espacial se guardan localmente y suben automáticamente al reconectar.
             </p>
           )}
         </div>
@@ -90,7 +90,7 @@ export function OfflineSyncBanner({ onSynced }: { onSynced?: () => void }) {
           type="button"
           onClick={handleSync}
           disabled={syncing}
-          className="inline-flex min-h-[40px] items-center gap-2 rounded-full bg-[#005F96] px-4 py-2 text-xs font-black text-white transition hover:bg-[#08334C] disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#005F96] px-4 text-xs font-black text-white transition hover:bg-[#041A29] disabled:opacity-60"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Sincronizando..." : "Sincronizar ahora"}

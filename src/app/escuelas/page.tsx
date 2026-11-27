@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Award, CheckCircle2, GraduationCap, Search, Sparkles } from "lucide-react";
-import { MascotaCangrejo } from "@/components/MascotaCangrejo";
+import { ArrowRight, CheckCircle2, GraduationCap, Search } from "lucide-react";
 
 interface SchoolReport {
   id: string;
@@ -25,10 +24,10 @@ const SCHOOLS = [
 ];
 
 const CYCLE_STEPS = [
-  { id: "nuevo", label: "1. Recibido", hint: "Tu foto llegó a la red" },
+  { id: "nuevo", label: "1. Recibido", hint: "Foto y GPS registrados" },
   { id: "validado_comunitario", label: "2. Mentor Local", hint: "Confirmado en terreno" },
-  { id: "validado_academico", label: "3. Mentor Académico", hint: "Clasificado por expertos" },
-  { id: "alerta_oficial_cra", label: "4. ¡CRA en acción!", hint: "Atendido por la Corporación" },
+  { id: "validado_academico", label: "3. Mentor Académico", hint: "Validación técnica" },
+  { id: "alerta_oficial_cra", label: "4. CRA en acción", hint: "Atendido en sala CRA" },
 ];
 
 export default function EscuelasPage() {
@@ -70,47 +69,48 @@ export default function EscuelasPage() {
     : -1;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-4">
-      {/* Hero escolar ilustrado */}
-      <div className="bezel-outer">
-        <div className="bezel-inner grid items-center gap-6 overflow-hidden p-6 sm:p-9 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1F7A4C]/12 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-[#1F7A4C]">
-              <GraduationCap className="h-4 w-4" />
-              Modo Escuelas · Misión 828 ha por revisar
-            </span>
-            <h1 className="font-display mt-3 text-3xl font-black text-[#08334C] sm:text-4xl">
-              ¡Guardianes Escolares del Atlántico!
+    <div className="min-h-[calc(100vh-72px)] bg-[#EDF2F6]">
+      {/* Hero escolar editorial */}
+      <section className="border-b border-[#041A29]/10 bg-white">
+        <div className="mx-auto grid max-w-[1440px] items-center gap-10 px-5 py-10 lg:grid-cols-12 lg:px-10 lg:py-14">
+          <div className="space-y-5 lg:col-span-7">
+            <h1 className="font-display text-3xl font-black leading-[1.03] text-[#041A29] sm:text-5xl">
+              Red Escolar de Guardianes del Manglar
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#08334C]/80">
-              Cada colegio adopta zonas marcadas como <strong>828 hectáreas por revisar</strong> en Juan de Acosta, Totumo y Mallorquín. Tus fotos en salida pedagógica ayudan a actualizar el mapa satelital de la CRA.
+            <p className="max-w-2xl text-base leading-relaxed text-[#041A29]/75">
+              Los colegios costeros del Atlántico adoptan polígonos de las{" "}
+              <strong className="text-[#041A29]">828 hectáreas por revisar</strong> en Juan de Acosta, Totumo, Puerto Colombia y Mallorquín. Cada salida pedagógica suma evidencia real al mapa satelital de la CRA.
             </p>
 
-            {/* Barra visual de reto */}
-            <div className="mt-4 rounded-2xl bg-[#F7F3EA] p-4">
-              <div className="mb-1.5 flex items-center justify-between text-xs font-black">
-                <span className="text-[#08334C]">Progreso escolar de verificación</span>
-                <span className="tabular-nums text-[#1F7A4C]">
-                  {schoolReports.length} reportes verificados
+            {/* Progreso de verificación escolar */}
+            <div className="rounded-xl border border-[#041A29]/12 bg-[#EDF2F6] p-4">
+              <div className="mb-2 flex items-center justify-between text-xs font-bold">
+                <span className="text-[#041A29]">Avance de aportes escolares PRAES</span>
+                <span className="font-mono tabular-nums text-[#16794A]">
+                  {schoolReports.length} reportes registrados
                 </span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-white">
+              <div className="h-2.5 overflow-hidden rounded-[2px] bg-white">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#1F7A4C] to-[#EDB512]"
-                  style={{ width: `${Math.min(100, Math.max(18, schoolReports.length * 14))}%` }}
+                  className="h-full bg-[#16794A] transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(18, schoolReports.length * 16))}%` }}
                 />
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-end gap-3">
-              <div className="min-w-[250px] flex-1">
-                <label className="mb-1 block text-xs font-black uppercase tracking-wider text-[#08334C]/65">
-                  Elige tu institución educativa
+            <div className="flex flex-wrap items-end gap-3 pt-1">
+              <div className="min-w-[260px] flex-1">
+                <label
+                  htmlFor="school-select"
+                  className="mb-1.5 block text-xs font-bold text-[#041A29]/70"
+                >
+                  Institución educativa
                 </label>
                 <select
+                  id="school-select"
                   value={school}
                   onChange={(e) => setSchool(e.target.value)}
-                  className="min-h-[48px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-sm font-bold text-[#08334C]"
+                  className="min-h-[48px] w-full rounded-lg border border-[#041A29]/20 bg-[#EDF2F6]/60 px-3.5 text-sm font-bold text-[#041A29]"
                 >
                   {SCHOOLS.map((s) => (
                     <option key={s} value={s}>
@@ -121,136 +121,136 @@ export default function EscuelasPage() {
               </div>
               <Link
                 href={`/reportar?perfil=estudiante_escuela&colegio=${encodeURIComponent(school)}`}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#005F96] px-6 py-2.5 text-sm font-black text-white shadow-md hover:bg-[#08334C]"
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-lg bg-[#005F96] px-5 text-sm font-black text-white transition hover:bg-[#041A29]"
               >
-                <Sparkles className="h-4 w-4 text-[#F8D86F]" />
-                Registrar salida escolar
+                <GraduationCap className="h-4 w-4 text-[#F8D86F]" />
+                <span>Registrar salida escolar</span>
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
 
-          <div className="lg:col-span-5">
+          <div className="overflow-hidden rounded-xl lg:col-span-5">
             <img
               src="/images/escuelas-guardianes.png"
-              alt="Estudiantes del Caribe observando manglares"
-              className="h-72 w-full rounded-3xl object-cover shadow-lg"
+              alt="Estudiantes del Atlántico participando en monitoreo costero"
+              className="h-[300px] w-full object-cover sm:h-[360px]"
             />
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Cierre de ciclo visual + Tablero escolar */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-12">
-        <div className="bezel-outer lg:col-span-6">
-          <div className="bezel-inner space-y-5 p-6">
-            <MascotaCangrejo
-              size="sm"
-              title="Cierre de ciclo CRA"
-              message="Escribe tu código de reporte para ver en qué paso va tu alerta y cómo ayudó al manglar."
+      {/* Cierre de ciclo + Bitácora escolar */}
+      <div className="mx-auto grid max-w-[1440px] gap-6 px-5 py-10 lg:grid-cols-12 lg:px-10">
+        <div className="space-y-5 rounded-xl border border-[#041A29]/12 bg-white p-6 sm:p-8 lg:col-span-6">
+          <div>
+            <h2 className="font-display text-2xl font-black text-[#041A29]">
+              Cierre de ciclo del reporte
+            </h2>
+            <p className="mt-1 text-sm text-[#041A29]/70">
+              Ingresa un código de seguimiento para verificar en qué fase de validación y atención oficial se encuentra.
+            </p>
+          </div>
+
+          <form onSubmit={handleLookup} className="flex gap-2">
+            <input
+              type="text"
+              value={lookupCode}
+              onChange={(e) => setLookupCode(e.target.value)}
+              placeholder="Ej. MGL-2026-0101"
+              className="min-h-[46px] flex-1 rounded-lg border border-[#041A29]/20 bg-[#EDF2F6]/60 px-4 font-mono text-sm font-bold uppercase text-[#041A29]"
             />
+            <button
+              type="submit"
+              className="inline-flex min-h-[46px] items-center gap-2 rounded-lg bg-[#041A29] px-5 text-xs font-black text-white transition hover:bg-[#005F96]"
+            >
+              <Search className="h-4 w-4 text-[#F8D86F]" />
+              Consultar
+            </button>
+          </form>
 
-            <form onSubmit={handleLookup} className="flex gap-2">
-              <input
-                type="text"
-                value={lookupCode}
-                onChange={(e) => setLookupCode(e.target.value)}
-                placeholder="Ej. MGL-2026-0101"
-                className="min-h-[46px] flex-1 rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-4 text-sm font-black uppercase text-[#08334C]"
-              />
-              <button
-                type="submit"
-                className="inline-flex min-h-[46px] items-center gap-1.5 rounded-xl bg-[#005F96] px-5 text-xs font-black text-white"
-              >
-                <Search className="h-4 w-4" />
-                Consultar
-              </button>
-            </form>
-
-            {foundReport ? (
-              <div className="space-y-4 rounded-2xl bg-[#F7F3EA] p-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-black text-[#005F96]">
-                    {foundReport.tracking_code} · {foundReport.zona_manglar}
-                  </span>
-                  <span className="rounded-full bg-white px-2.5 py-0.5 font-black text-[#1F7A4C]">
-                    {foundReport.puntaje_confiabilidad}/100 pts
-                  </span>
-                </div>
-
-                {/* Rastreador de 4 estaciones */}
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {CYCLE_STEPS.map((st, idx) => {
-                    const done = idx <= activeStage;
-                    return (
-                      <div
-                        key={st.id}
-                        className={`rounded-xl p-2.5 text-center text-[11px] ${
-                          done
-                            ? "bg-[#1F7A4C] text-white shadow-sm"
-                            : "bg-white text-[#08334C]/55"
-                        }`}
-                      >
-                        <CheckCircle2
-                          className={`mx-auto mb-1 h-4 w-4 ${
-                            done ? "text-[#F8D86F]" : "text-[#08334C]/25"
-                          }`}
-                        />
-                        <p className="font-black leading-tight">{st.label}</p>
-                        <p className="mt-0.5 text-[10px] opacity-85">{st.hint}</p>
-                      </div>
-                    );
-                  })}
-                </div>
+          {foundReport ? (
+            <div className="space-y-4 rounded-xl border border-[#041A29]/10 bg-[#EDF2F6]/70 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="font-mono font-bold text-[#005F96]">
+                  {foundReport.tracking_code} · {foundReport.zona_manglar}
+                </span>
+                <span className="rounded bg-white px-2.5 py-0.5 font-mono font-bold text-[#16794A]">
+                  {foundReport.puntaje_confiabilidad}/100 pts
+                </span>
               </div>
-            ) : (
-              <p className="text-xs font-bold text-[#D94E2A]">
-                No encontramos ese código todavía. Prueba con MGL-2026-0101 o MGL-2026-0104.
-              </p>
-            )}
-          </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {CYCLE_STEPS.map((st, idx) => {
+                  const done = idx <= activeStage;
+                  return (
+                    <div
+                      key={st.id}
+                      className={`rounded-lg border p-3 text-left text-[11px] ${
+                        done
+                          ? "border-[#16794A] bg-[#16794A] text-white"
+                          : "border-[#041A29]/10 bg-white text-[#041A29]/55"
+                      }`}
+                    >
+                      <CheckCircle2
+                        className={`mb-1.5 h-4 w-4 ${
+                          done ? "text-[#F8D86F]" : "text-[#041A29]/25"
+                        }`}
+                      />
+                      <p className="font-black leading-tight">{st.label}</p>
+                      <p className="mt-0.5 text-[10px] opacity-85">{st.hint}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs font-bold text-[#C84023]">
+              No encontramos ese código todavía. Prueba con MGL-2026-0101 o MGL-2026-0104.
+            </p>
+          )}
         </div>
 
-        <div className="bezel-outer lg:col-span-6">
-          <div className="bezel-inner p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-2xl font-bold text-[#08334C]">
-                Bitácora de aportes escolares
-              </h2>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#F8D86F]/45 px-3 py-1 text-xs font-black text-[#08334C]">
-                <Award className="h-3.5 w-3.5" /> Red PRAES
-              </span>
-            </div>
+        <div className="rounded-xl border border-[#041A29]/12 bg-white p-6 sm:p-8 lg:col-span-6">
+          <div className="mb-5 flex items-baseline justify-between gap-2">
+            <h2 className="font-display text-2xl font-black text-[#041A29]">
+              Bitácora de aportes escolares
+            </h2>
+            <span className="font-mono text-xs font-bold text-[#005F96]">
+              Red PRAES Atlántico
+            </span>
+          </div>
 
-            <div className="space-y-3">
-              {schoolReports.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => {
-                    setLookupCode(r.tracking_code);
-                    setFoundReport(r);
-                  }}
-                  className="flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#08334C]/10 bg-[#F7F3EA]/70 p-4 text-left text-xs transition hover:border-[#005F96] hover:bg-white"
-                >
-                  <div>
-                    <p className="font-black text-[#08334C]">{r.school_name}</p>
-                    <p className="text-[#08334C]/75">
-                      {r.tracking_code} · {r.zona_manglar}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {r.en_zona_por_revisar && (
-                      <span className="rounded-full bg-[#1F7A4C]/15 px-2.5 py-0.5 font-black text-[#1F7A4C]">
-                        828 ha por revisar
-                      </span>
-                    )}
-                    <span className="rounded-full bg-white px-2.5 py-0.5 font-bold text-[#005F96]">
-                      {r.attention_status}
+          <div className="divide-y divide-[#041A29]/10 border-y border-[#041A29]/10">
+            {schoolReports.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  setLookupCode(r.tracking_code);
+                  setFoundReport(r);
+                }}
+                className="flex w-full flex-wrap items-center justify-between gap-2 py-4 text-left text-xs transition hover:bg-[#EDF2F6]/60"
+              >
+                <div>
+                  <p className="font-black text-[#041A29]">{r.school_name}</p>
+                  <p className="mt-0.5 text-[#041A29]/70">
+                    <span className="font-mono font-bold text-[#005F96]">{r.tracking_code}</span> ·{" "}
+                    {r.zona_manglar}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {r.en_zona_por_revisar && (
+                    <span className="rounded bg-[#16794A]/12 px-2 py-0.5 font-bold text-[#16794A]">
+                      828 ha
                     </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  )}
+                  <span className="rounded bg-[#EDF2F6] px-2.5 py-0.5 font-bold text-[#041A29]">
+                    {r.attention_status}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       </div>

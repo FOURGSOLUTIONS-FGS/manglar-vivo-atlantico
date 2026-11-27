@@ -2,209 +2,231 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Droplets, MapPin, ShieldAlert, Trees } from "lucide-react";
-import { CRA_SECTORS } from "@/lib/cra-domain";
-import { MascotaCangrejo } from "./MascotaCangrejo";
+import { ArrowUpRight, Camera, MapPin } from "lucide-react";
+import { CRA_GLOBAL_METRICS, CRA_SECTORS } from "@/lib/cra-domain";
 
-const SECTOR_STORY: Record<number, { highlight: string; mission: string; crabTip: string }> = {
+const SECTOR_CONTEXT: Record<number, { highlight: string; focusTag: string }> = {
   1: {
-    highlight: "Mayor reserva de carbono azul del Atlántico (70,659 tC) y mayor presión urbana.",
-    mission: "Vigilar bordes de la Ciénaga de Mallorquín contra basuras y rellenos.",
-    crabTip: "¡Aquí guardamos más carbono que nadie! Cada foto en el sendero ayuda a proteger este tesoro.",
+    highlight:
+      "Mayor reserva de carbono azul del Atlántico y borde urbano de mayor presión junto a Barranquilla.",
+    focusTag: "70,659 tC · Presión urbana",
   },
   2: {
-    highlight: "Ecosistema estuarino de Puerto Velero y Balboa conectado con pescadores y turistas.",
-    mission: "Reportar taponamientos de caños y revisar 105.8 hectáreas en terreno.",
-    crabTip: "Si vienes de paseo a Puerto Velero, en 30 segundos puedes cuidar el agua donde crecen los peces.",
+    highlight:
+      "Corredor estuarino clave para pesca artesanal, amortiguación de oleaje y reconexión de caños.",
+    focusTag: "Restauración hidrológica",
   },
   3: {
-    highlight: "Foco crítico 2026: registró la mayor sequía de dosel (-0.151) y mayor riesgo (0.436).",
-    mission: "Prioridad urgente junto a escuelas de Juan de Acosta y Tubará.",
-    crabTip: "¡Alerta amarilla! Aquí los árboles tuvieron mucha sed con El Niño. Necesitamos ojos en campo ya.",
+    highlight:
+      "Sector con mayor estrés hídrico en 2026: anomalía de dosel -0.151 e índice de riesgo 0.436.",
+    focusTag: "Prioridad crítica 2026",
   },
   4: {
-    highlight: "Concentra 451.8 ha por revisar: más de la mitad de las hectáreas sin verificar del departamento.",
-    mission: "Sumar etiquetas ciudadanas entre El Totumo, Astilleros y Galerazamba.",
-    crabTip: "Este es el reto gigante: ¡451 hectáreas esperando que estudiantes y vecinos confirmen su estado!",
+    highlight:
+      "Concentra más de la mitad de las áreas pendientes de verificación en terreno del departamento.",
+    focusTag: "451.8 ha por revisar",
   },
 };
 
 export function CoastalExplorer() {
   const [activeId, setActiveId] = useState<number>(3);
   const sector = CRA_SECTORS.find((s) => s.id === activeId) ?? CRA_SECTORS[0];
-  const story = SECTOR_STORY[sector.id];
-  const co2e = Math.round(sector.carbonoTc * 3.667);
-  const equivAutos = Math.round(co2e / 4.6);
+  const meta = SECTOR_CONTEXT[sector.id];
+
+  const co2eTon = Math.round(sector.carbonoTc * CRA_GLOBAL_METRICS.co2eFactor);
+  const carEquiv = Math.round(co2eTon / 4.6);
+  const dryRatio = Math.min(100, Math.round((sector.doselSecoHa / sector.referenciaHa) * 100));
+  const riskPct = Math.min(100, Math.round(sector.riesgoMedio * 100));
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#005F96]">
-            Explorador territorial interactivo · Datos reales CRA 2026
-          </p>
-          <h2 className="font-display mt-1 text-3xl font-black text-[#08334C] sm:text-4xl">
-            Toca un manglar y descubre su misión hoy
-          </h2>
+    <section
+      id="sectores"
+      className="border-t border-white/12 bg-[#041A29] py-20 text-white lg:py-28"
+    >
+      <div className="mx-auto max-w-[1440px] px-5 lg:px-10">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-6 border-b border-white/12 pb-8">
+          <div className="max-w-2xl">
+            <h2 className="font-display text-3xl font-black leading-[1.02] text-white sm:text-5xl">
+              Cuatro sectores costeros bajo observación satelital
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-white/70">
+              Imágenes Sentinel-2 reales de la línea base CRA Atlántico. Selecciona un tramo de costa para consultar su anomalía de dosel 2026, carbono retenido y hectáreas que necesitan verificación ciudadana.
+            </p>
+          </div>
+          <Link
+            href="/cra"
+            className="inline-flex min-h-[46px] items-center gap-2 rounded-lg border border-white/25 px-5 text-sm font-bold text-white transition hover:border-[#EDB512] hover:text-[#F8D86F]"
+          >
+            <span>Abrir visor geográfico completo</span>
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </div>
-        <span className="rounded-full bg-[#08334C]/6 px-3.5 py-1.5 text-xs font-bold text-[#08334C]/75">
-          4 sectores costeros · 524 puntos ground-truth
-        </span>
-      </div>
 
-      {/* Selector táctil de los 4 sectores */}
-      <div className="mb-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        {CRA_SECTORS.map((s) => {
-          const active = s.id === activeId;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setActiveId(s.id)}
-              className={`group rounded-2xl border p-4 text-left transition-all duration-300 ease-coastal ${
-                active
-                  ? "border-[#005F96] bg-[#005F96] text-white shadow-lg shadow-[#005F96]/25"
-                  : "border-[#08334C]/12 bg-white/90 text-[#08334C] hover:border-[#005F96]/50 hover:bg-white"
-              }`}
-            >
-              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
-                <span className={active ? "text-[#F8D86F]" : "text-[#005F96]"}>
-                  Sector {s.id}
-                </span>
-                <span className="tabular-nums opacity-80">{s.referenciaHa} ha</span>
-              </div>
-              <p className="font-display mt-1 text-base font-bold leading-tight">
-                {s.nombre.split(" – ")[0]}
-              </p>
-              <p className={`mt-1 text-xs ${active ? "text-white/80" : "text-[#08334C]/65"}`}>
-                {s.municipioPrincipal}
-              </p>
-            </button>
-          );
-        })}
-      </div>
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-stretch">
+          {/* Selector vertical de 4 sectores */}
+          <div className="flex flex-col divide-y divide-white/10 border-y border-white/10 lg:col-span-5">
+            {CRA_SECTORS.map((s) => {
+              const active = s.id === sector.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setActiveId(s.id)}
+                  className={`group flex w-full items-start justify-between gap-4 px-4 py-5 text-left transition ${
+                    active ? "bg-[#005F96]/35" : "hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`font-mono text-xs font-bold tabular-nums ${
+                          active ? "text-[#F8D86F]" : "text-white/45"
+                        }`}
+                      >
+                        0{s.id}
+                      </span>
+                      <span className="truncate font-display text-lg font-extrabold text-white">
+                        {s.nombre}
+                      </span>
+                    </div>
+                    <p className="mt-1 pl-7 text-xs text-white/65">
+                      {s.municipioPrincipal} · {SECTOR_CONTEXT[s.id].focusTag}
+                    </p>
+                  </div>
 
-      {/* Escenario detallado del sector elegido */}
-      <div className="bezel-outer">
-        <div className="bezel-inner grid gap-6 p-6 sm:p-8 lg:grid-cols-12">
-          <div className="flex flex-col justify-between space-y-5 lg:col-span-7">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[#EDB512]/25 px-3 py-1 text-xs font-black text-[#08334C]">
-                  {sector.nombre}
-                </span>
-                {sector.id === 3 && (
-                  <span className="rounded-full bg-[#D94E2A] px-3 py-1 text-xs font-black text-white">
-                    Alerta prioritaria 2026
-                  </span>
-                )}
-              </div>
-
-              <h3 className="font-display mt-3 text-2xl font-black text-[#08334C] sm:text-3xl">
-                {story.highlight}
-              </h3>
-              <p className="mt-2 text-sm text-[#08334C]/75">
-                <strong>Misión ciudadana:</strong> {story.mission}
-              </p>
-            </div>
-
-            {/* Medidores animados en lenguaje humano */}
-            <div className="space-y-3 rounded-2xl bg-[#F7F3EA] p-4">
-              <div>
-                <div className="mb-1 flex justify-between text-xs font-bold">
-                  <span className="inline-flex items-center gap-1.5">
-                    <ShieldAlert className="h-3.5 w-3.5 text-[#D94E2A]" />
-                    Índice de riesgo ambiental
-                  </span>
-                  <span className="tabular-nums font-black text-[#D94E2A]">
-                    {Math.round(sector.riesgoMedio * 100)}%
-                  </span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-white">
-                  <div
-                    className="h-full rounded-full bg-[#D94E2A] transition-all duration-700 ease-coastal"
-                    style={{ width: `${Math.min(100, sector.riesgoMedio * 160)}%` }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 flex justify-between text-xs font-bold">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Droplets className="h-3.5 w-3.5 text-[#005F96]" />
-                    Dosel seco en 2026
-                  </span>
-                  <span className="tabular-nums font-black text-[#005F96]">
-                    {sector.doselSecoHa} ha (anomalía {sector.anomaliaDosel})
-                  </span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-white">
-                  <div
-                    className="h-full rounded-full bg-[#EDB512] transition-all duration-700 ease-coastal"
-                    style={{
-                      width: `${Math.min(100, Math.round((sector.doselSecoHa / sector.referenciaHa) * 100))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-1 flex justify-between text-xs font-bold">
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-[#1F7A4C]" />
-                    Hectáreas por verificar en campo
-                  </span>
-                  <span className="tabular-nums font-black text-[#1F7A4C]">
-                    {sector.porRevisarHa} ha
-                  </span>
-                </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-white">
-                  <div
-                    className="h-full rounded-full bg-[#1F7A4C] transition-all duration-700 ease-coastal"
-                    style={{ width: `${Math.min(100, Math.round((sector.porRevisarHa / 460) * 100))}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/reportar"
-                className="inline-flex min-h-[46px] items-center gap-2 rounded-full bg-[#005F96] px-5 py-2 text-xs font-black text-white transition hover:bg-[#08334C]"
-              >
-                <Trees className="h-4 w-4 text-[#F8D86F]" />
-                Reportar en este sector
-              </Link>
-              <Link
-                href="/cra"
-                className="inline-flex min-h-[46px] items-center gap-1.5 rounded-full border border-[#08334C]/15 bg-white px-5 py-2 text-xs font-black text-[#08334C] hover:border-[#005F96]"
-              >
-                Ver mapa satelital
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+                  <div className="shrink-0 text-right">
+                    <span className="block font-mono text-sm font-bold tabular-nums text-white">
+                      {s.referenciaHa} ha
+                    </span>
+                    <span
+                      className={`mt-0.5 block font-mono text-[11px] tabular-nums ${
+                        s.anomaliaDosel <= -0.1 ? "text-[#FCA5A5]" : "text-[#F8D86F]"
+                      }`}
+                    >
+                      {s.porRevisarHa} ha rev.
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          <div className="flex flex-col justify-between gap-4 rounded-3xl bg-gradient-to-br from-[#005F96]/8 via-[#F7F3EA] to-[#1F7A4C]/10 p-5 lg:col-span-5">
-            <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <p className="text-[11px] font-black uppercase tracking-wider text-[#1F7A4C]">
-                Carbono azul protegido aquí
-              </p>
-              <p className="tabular-nums font-display mt-1 text-3xl font-black text-[#08334C]">
-                {co2e.toLocaleString("es-CO")} t CO₂e
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-[#08334C]/75">
-                Equivale aproximadamente a sacar de circulación{" "}
-                <strong>{equivAutos.toLocaleString("es-CO")} carros durante un año</strong>{" "}
-                ({sector.carbonoTcHa} tC/ha).
-              </p>
+          {/* Escenario satelital Sentinel-2 real */}
+          <div className="flex flex-col justify-between overflow-hidden rounded-xl border border-white/15 bg-[#082438] lg:col-span-7">
+            <div className="relative h-[300px] w-full overflow-hidden bg-[#041A29] sm:h-[360px]">
+              <img
+                key={sector.satImage}
+                src={sector.satImage}
+                alt={`Imagen satelital Sentinel-2 del sector ${sector.nombre}`}
+                className="h-full w-full object-cover transition-opacity duration-500"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#082438] via-[#041A29]/25 to-[#041A29]/35" />
+
+              {/* Esquinas ópticas de telemetría */}
+              <span className="pointer-events-none absolute left-4 top-4 h-5 w-5 border-l-2 border-t-2 border-[#EDB512]/80" />
+              <span className="pointer-events-none absolute right-4 top-4 h-5 w-5 border-r-2 border-t-2 border-[#EDB512]/80" />
+              <span className="pointer-events-none absolute bottom-4 left-4 h-5 w-5 border-b-2 border-l-2 border-white/40" />
+              <span className="pointer-events-none absolute bottom-4 right-4 h-5 w-5 border-b-2 border-r-2 border-white/40" />
+
+              {/* Coordenadas reales y fuente */}
+              <div className="absolute left-5 right-5 top-5 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] font-bold text-white/90">
+                <span className="inline-flex items-center gap-1.5 rounded bg-[#041A29]/80 px-2.5 py-1 backdrop-blur-sm">
+                  <MapPin className="h-3.5 w-3.5 text-[#F8D86F]" />
+                  {sector.centroidLat.toFixed(4)}° N, {Math.abs(sector.centroidLon).toFixed(4)}° O
+                </span>
+                <span className="rounded bg-[#041A29]/80 px-2.5 py-1 text-[#F8D86F] backdrop-blur-sm">
+                  Sentinel-2 · CRA Atlántico
+                </span>
+              </div>
+
+              <div className="absolute bottom-5 left-5 right-5">
+                <h3 className="font-display text-2xl font-black text-white sm:text-3xl">
+                  {sector.nombre}
+                </h3>
+                <p className="mt-1 max-w-xl text-sm text-white/85">{meta.highlight}</p>
+              </div>
             </div>
 
-            <MascotaCangrejo
-              size="md"
-              title="Mangle · Dato del sector"
-              message={story.crabTip}
-            />
+            {/* Datos duros + barras de riesgo y dosel seco */}
+            <div className="space-y-6 p-6">
+              <div className="grid grid-cols-2 gap-4 border-b border-white/12 pb-5 sm:grid-cols-4">
+                <div>
+                  <span className="block text-xs text-white/60">Manglar probable</span>
+                  <span className="mt-1 block font-display text-2xl font-black tabular-nums text-white">
+                    {sector.referenciaHa} <span className="text-xs font-bold text-white/60">ha</span>
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs text-white/60">Por revisar en campo</span>
+                  <span className="mt-1 block font-display text-2xl font-black tabular-nums text-[#F8D86F]">
+                    {sector.porRevisarHa} <span className="text-xs font-bold text-[#F8D86F]/70">ha</span>
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs text-white/60">Dosel seco 2026</span>
+                  <span className="mt-1 block font-display text-2xl font-black tabular-nums text-[#FCA5A5]">
+                    {sector.doselSecoHa} <span className="text-xs font-bold text-[#FCA5A5]/70">ha</span>
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs text-white/60">Anomalía hídrica</span>
+                  <span className="mt-1 block font-mono text-2xl font-bold tabular-nums text-white">
+                    {sector.anomaliaDosel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-white/75">Proporción de dosel afectado</span>
+                    <span className="font-mono tabular-nums text-[#FCA5A5]">{dryRatio}%</span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-[2px] bg-white/12">
+                    <div
+                      className="h-full bg-[#C84023] transition-all duration-500"
+                      style={{ width: `${dryRatio}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-white/75">Índice compuesto de riesgo CRA</span>
+                    <span className="font-mono tabular-nums text-[#F8D86F]">
+                      {sector.riesgoMedio} / 1.0
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-[2px] bg-white/12">
+                    <div
+                      className="h-full bg-[#EDB512] transition-all duration-500"
+                      style={{ width: `${riskPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/12 pt-5">
+                <p className="text-xs leading-relaxed text-white/75">
+                  Reserva estimada:{" "}
+                  <strong className="text-white tabular-nums">
+                    {sector.carbonoTc.toLocaleString("es-CO")} t C
+                  </strong>{" "}
+                  ({co2eTon.toLocaleString("es-CO")} t CO₂e · equivale a retirar{" "}
+                  <strong className="text-[#F8D86F] tabular-nums">
+                    {carEquiv.toLocaleString("es-CO")} vehículos
+                  </strong>{" "}
+                  durante un año).
+                </p>
+
+                <Link
+                  href="/reportar"
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#EDB512] px-4 text-xs font-black text-[#041A29] transition hover:bg-[#F8D86F]"
+                >
+                  <Camera className="h-4 w-4" />
+                  Reportar en este sector
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

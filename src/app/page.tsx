@@ -1,43 +1,94 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRef, useState } from "react";
 import {
   ArrowRight,
+  ArrowUpRight,
   Camera,
-  Compass,
-  GraduationCap,
-  MapPin,
+  Map as MapIcon,
   Pause,
   Play,
   ShieldCheck,
-  Trees,
+  Users,
 } from "lucide-react";
-import { CRA_GLOBAL_METRICS } from "@/lib/cra-domain";
+import { gsap, useGSAP } from "@/lib/gsap";
+import { CRA_GLOBAL_METRICS, FACTOR_DOMAINS } from "@/lib/cra-domain";
 import { CoastalExplorer } from "@/components/CoastalExplorer";
-import { MascotaCangrejo } from "@/components/MascotaCangrejo";
-
-const MARQUEE_ITEMS = [
-  "MALLORQUÍN · BOCAS DE CENIZA",
-  "PUERTO COLOMBIA · PUERTO VELERO",
-  "TUBARÁ · JUAN DE ACOSTA",
-  "EL TOTUMO · GALERAZAMBA",
-  "828 HA POR REVISAR EN CAMPO",
-  "524 PUNTOS GROUND-TRUTH CRA",
-  "125,000 tC DE CARBONO AZUL",
-];
 
 export default function HomePage() {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [paused, setPaused] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      videoRef.current?.pause();
-      setPaused(true);
-    }
-  }, []);
+  useGSAP(
+    () => {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) {
+        if (videoRef.current) {
+          videoRef.current.pause();
+          setPaused(true);
+        }
+        return;
+      }
+
+      // Entrada limpia del titular principal
+      gsap.from("[data-hero-line]", {
+        y: 36,
+        opacity: 0,
+        duration: 0.9,
+        stagger: 0.1,
+        ease: "power3.out",
+      });
+
+      // Zoom óptico controlado en scroll del video aéreo CRA
+      gsap.to("[data-hero-media]", {
+        scale: 1.09,
+        ease: "none",
+        scrollTrigger: {
+          trigger: "[data-hero-stage]",
+          start: "top top",
+          end: "bottom top",
+          scrub: true,
+        },
+      });
+
+      // Aparición editorial de métricas y secciones
+      gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
+        gsap.from(el, {
+          y: 28,
+          opacity: 0,
+          duration: 0.75,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: el,
+            start: "top 86%",
+            once: true,
+          },
+        });
+      });
+
+      // Revelado con clip-path en fotografías territoriales
+      gsap.utils.toArray<HTMLElement>("[data-clip-reveal]").forEach((el) => {
+        gsap.fromTo(
+          el,
+          { clipPath: "inset(8% 0% 8% 0%)", opacity: 0.65 },
+          {
+            clipPath: "inset(0% 0% 0% 0%)",
+            opacity: 1,
+            duration: 0.9,
+            ease: "power3.out",
+            scrollTrigger: {
+              trigger: el,
+              start: "top 84%",
+              once: true,
+            },
+          }
+        );
+      });
+    },
+    { scope: rootRef }
+  );
 
   const toggleVideo = () => {
     const v = videoRef.current;
@@ -52,226 +103,398 @@ export default function HomePage() {
   };
 
   return (
-    <div>
-      {/* HERO CINEMATOGRÁFICO FULL-BLEED (INSPIRADO EN MANGLARCRA.NETLIFY.APP) */}
-      <section className="relative flex min-h-[100dvh] flex-col justify-end overflow-hidden bg-[#06273B] text-white">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster="/images/hero-manglar-atlantico.png"
-          aria-hidden="true"
-          className="ken-burns absolute inset-0 h-full w-full object-cover"
-        >
-          <source src="/media/portada_960.mp4" type="video/mp4" />
-        </video>
-
-        {/* Gradiente estuarino cinematográfico */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-[#052336]/65 via-[#005F96]/25 to-[#052336]/95"
-        />
-
-        {/* Botón discreto de pausa del video (accesibilidad CRA) */}
-        <button
-          type="button"
-          onClick={toggleVideo}
-          aria-pressed={paused}
-          className="absolute right-5 top-24 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-[#052336]/55 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-md transition hover:bg-[#052336]/80"
-        >
-          {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-          <span>{paused ? "Reproducir" : "Pausar vista"}</span>
-        </button>
-
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-10 pt-28 sm:pb-14">
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#F8D86F] backdrop-blur-md">
-            <span className="h-2 w-2 rounded-full bg-[#33A02C]" />
-            Departamento del Atlántico · Monitoreo 2015–2026 + Ciencia Ciudadana
-          </p>
-
-          <h1 className="font-display mt-4 max-w-4xl text-[clamp(2.4rem,6vw,5.4rem)] font-black leading-[0.96] tracking-tight drop-shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
-            El manglar del Atlántico, protegido por su gente.
-          </h1>
-
-          <p className="mt-4 max-w-2xl text-base font-medium leading-relaxed text-white/88 sm:text-lg">
-            Una herramienta viva para niños, turistas, pescadores y la CRA: reporta en 3 pasos incluso en modo avión, valida con mentores e IA y convierte cada foto en acción oficial.
-          </p>
-
-          {/* Dos puertas monumentales estilo manglarcra.netlify.app */}
-          <div className="mt-8 grid gap-4 border-t-2 border-white/80 pt-5 md:grid-cols-2">
-            <Link
-              href="/reportar"
-              className="group flex items-center justify-between gap-4 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-md transition-all duration-300 ease-coastal hover:border-[#F8D86F] hover:bg-white/18"
+    <div ref={rootRef} className="bg-[#041A29] text-[#041A29]">
+      {/* CAPÍTULO 1: HERO CINEMATOGRÁFICO CON VIDEO OFICIAL CRA Y 2 PUERTAS */}
+      <section data-hero-stage className="relative h-[126svh] bg-[#041A29]">
+        <div className="sticky top-0 flex h-[100svh] flex-col justify-between overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden">
+            <video
+              ref={videoRef}
+              data-hero-media
+              autoPlay
+              muted
+              loop
+              playsInline
+              poster="/images/hero-manglar-atlantico.png"
+              className="h-full w-full object-cover will-change-transform"
             >
-              <div>
-                <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-[#F8D86F]">
-                  Entrada 1 · Modo Campo Offline
-                </span>
-                <span className="font-display mt-1 block text-2xl font-black sm:text-3xl">
-                  Reportar en 60 segundos
-                </span>
-                <span className="mt-1 block text-xs text-white/80">
-                  Foto con EXIF + GPS real + cruce inmediato con las {CRA_GLOBAL_METRICS.porRevisarHa} ha por revisar.
-                </span>
-              </div>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EDB512] text-[#08334C] transition-transform duration-300 group-hover:scale-110">
-                <Camera className="h-5 w-5" />
-              </span>
-            </Link>
+              <source src="/media/portada_960.mp4" type="video/mp4" />
+            </video>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#041A29] via-[#041A29]/45 to-[#041A29]/55" />
+          </div>
 
-            <Link
-              href="/cra"
-              className="group flex items-center justify-between gap-4 rounded-2xl border border-white/15 bg-[#052336]/55 p-5 backdrop-blur-md transition-all duration-300 ease-coastal hover:border-white hover:bg-[#052336]/80"
+          {/* Espacio superior para navbar fija */}
+          <div className="relative z-10 mx-auto flex w-full max-w-[1440px] justify-end px-5 pt-24 lg:px-10">
+            <button
+              type="button"
+              onClick={toggleVideo}
+              aria-label={paused ? "Reproducir video aéreo" : "Pausar video aéreo"}
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-white/25 bg-[#041A29]/65 px-3.5 text-xs font-bold text-white backdrop-blur-sm transition hover:border-[#EDB512]"
             >
-              <div>
-                <span className="block text-[11px] font-black uppercase tracking-[0.18em] text-white/80">
-                  Entrada 2 · Tiempo Real CRA
-                </span>
-                <span className="font-display mt-1 block text-2xl font-black sm:text-3xl">
-                  Sala Operativa y Datos
-                </span>
-                <span className="mt-1 block text-xs text-white/80">
-                  Mapa satelital multicapa, doble validación y exportación abierta CSV / GeoJSON.
-                </span>
-              </div>
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-[#005F96] transition-transform duration-300 group-hover:translate-x-1">
-                <MapPin className="h-5 w-5" />
-              </span>
-            </Link>
+              {paused ? <Play className="h-3.5 w-3.5 text-[#F8D86F]" /> : <Pause className="h-3.5 w-3.5 text-[#F8D86F]" />}
+              <span>{paused ? "Reproducir vista aérea" : "Pausar vista aérea"}</span>
+            </button>
+          </div>
+
+          {/* Titular monumental */}
+          <div className="relative z-10 mx-auto w-full max-w-[1440px] px-5 pb-8 lg:px-10 lg:pb-12">
+            <div className="max-w-4xl">
+              <h1
+                data-hero-line
+                className="font-display text-[clamp(2.45rem,6.1vw,5.4rem)] font-black leading-[0.94] text-white"
+              >
+                El manglar del Atlántico, vigilado por su gente.
+              </h1>
+              <p
+                data-hero-line
+                className="mt-5 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg"
+              >
+                Ciencia ciudadana offline, validación comunitaria y satelital en vivo para proteger los ecosistemas costeros desde Bocas de Ceniza hasta la Ciénaga del Totumo.
+              </p>
+            </div>
+          </div>
+
+          {/* Dos puertas operativas pegadas al borde inferior */}
+          <div className="relative z-10 border-t border-white/15 bg-[#041A29]/85 backdrop-blur-md">
+            <div className="mx-auto grid max-w-[1440px] sm:grid-cols-2">
+              <Link
+                href="/reportar"
+                className="group flex min-h-[78px] items-center justify-between gap-4 bg-[#EDB512] px-6 py-4 text-[#041A29] transition hover:bg-[#F8D86F] lg:px-10"
+              >
+                <div>
+                  <span className="flex items-center gap-2 font-display text-lg font-black">
+                    <Camera className="h-5 w-5" strokeWidth={2.2} />
+                    Reportar en campo
+                  </span>
+                  <span className="mt-0.5 block text-xs font-bold text-[#041A29]/80">
+                    Funciona sin internet · 4 dominios claros · Foto EXIF y GPS honesto
+                  </span>
+                </div>
+                <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
+              </Link>
+
+              <Link
+                href="/cra"
+                className="group flex min-h-[78px] items-center justify-between gap-4 border-t border-white/12 px-6 py-4 text-white transition hover:bg-[#005F96] sm:border-l sm:border-t-0 lg:px-10"
+              >
+                <div>
+                  <span className="flex items-center gap-2 font-display text-lg font-black">
+                    <MapIcon className="h-5 w-5 text-[#F8D86F]" strokeWidth={2.1} />
+                    Sala Operativa CRA
+                  </span>
+                  <span className="mt-0.5 block text-xs text-white/75">
+                    Mapa satelital en vivo · 524 puntos ground-truth · Datos abiertos Ley 1581
+                  </span>
+                </div>
+                <ArrowUpRight className="h-5 w-5 shrink-0 text-[#F8D86F] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* MARQUEE CINÉTICO CARIBEÑO */}
-      <div className="overflow-hidden border-y border-[#08334C]/10 bg-[#005F96] py-3.5 text-white">
-        <div className="marquee-track items-center gap-8 text-xs font-black uppercase tracking-[0.18em]">
-          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, idx) => (
-            <span key={`${item}-${idx}`} className="inline-flex items-center gap-6">
-              <span>{item}</span>
-              <span className="text-[#F8D86F]">✦</span>
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* CAPÍTULO 2: CIFRAS TERRITORIALES SIN CAJAS DECORATIVAS */}
+      <section className="border-t border-white/12 bg-[#041A29] py-20 text-white lg:py-24">
+        <div className="mx-auto max-w-[1440px] px-5 lg:px-10">
+          <div data-reveal className="max-w-3xl">
+            <h2 className="font-display text-3xl font-black leading-[1.05] text-white sm:text-5xl">
+              Datos satelitales reales que necesitan ojos en territorio
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-white/72">
+              El monitoreo óptico y de radar de la CRA identificó zonas prioritarias y áreas con estrés hídrico tras El Niño 2026. Cada reporte ciudadano geolocalizado se cruza al instante contra estas capas oficiales.
+            </p>
+          </div>
 
-      {/* EXPLORADOR INTERACTIVO DE LOS 4 SECTORES */}
+          <div
+            data-reveal
+            className="mt-12 grid border-y border-white/15 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {[
+              {
+                value: `${CRA_GLOBAL_METRICS.manglarProbableHa} ha`,
+                title: "Manglar probable",
+                detail: `${CRA_GLOBAL_METRICS.altaProbabilidadHa} ha de alta probabilidad · ${CRA_GLOBAL_METRICS.planManglarFueraHa} ha por fuera de zonificación actual.`,
+                accent: "text-white",
+              },
+              {
+                value: `${CRA_GLOBAL_METRICS.porRevisarHa} ha`,
+                title: "Áreas por revisar en campo",
+                detail: "Polígonos con cobertura incierta donde escuelas y vigías confirman estado real.",
+                accent: "text-[#F8D86F]",
+              },
+              {
+                value: `${CRA_GLOBAL_METRICS.doselSeco2026Ha} ha`,
+                title: "Dosel más seco en 2026",
+                detail: "Estrés hídrico y salinidad concentrados en Tubará y Juan de Acosta (-0.151).",
+                accent: "text-[#FCA5A5]",
+              },
+              {
+                value: `${CRA_GLOBAL_METRICS.reservaCarbonoTc.toLocaleString("es-CO")} tC`,
+                title: "Reserva de carbono azul",
+                detail: `Contraste continuo con ${CRA_GLOBAL_METRICS.groundTruthPoints} puntos ground-truth validados por la CRA.`,
+                accent: "text-[#86EFAC]",
+              },
+            ].map((item, idx) => (
+              <div
+                key={item.title}
+                className={`py-8 sm:px-6 ${
+                  idx > 0 ? "border-t border-white/12 sm:border-t-0" : "sm:pl-0"
+                } ${idx % 2 === 1 ? "sm:border-l sm:border-white/12" : ""} ${
+                  idx >= 2 ? "sm:border-t lg:border-l lg:border-t-0 lg:border-white/12" : ""
+                }`}
+              >
+                <p className={`font-display text-4xl font-black tabular-nums lg:text-5xl ${item.accent}`}>
+                  {item.value}
+                </p>
+                <p className="mt-3 text-sm font-bold text-white">{item.title}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white/65">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CAPÍTULO 3: TEATRO SATELITAL INTERACTIVO CON RÁSTERS REALES CRA */}
       <CoastalExplorer />
 
-      {/* 3 PORTALES INMERSIVOS PARA CADA ACTOR */}
-      <section className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#005F96]">
-              Participación sostenible para todos
-            </p>
-            <h2 className="font-display mt-1 text-3xl font-black text-[#08334C]">
-              Elige tu rol en la red viva del manglar
-            </h2>
+      {/* CAPÍTULO 4: 4 DOMINIOS AMBIENTALES SEPARADOS (12 FACTORES EXACTOS) */}
+      <section className="bg-white py-20 text-[#041A29] lg:py-28">
+        <div className="mx-auto max-w-[1440px] px-5 lg:px-10">
+          <div data-reveal className="flex flex-wrap items-end justify-between gap-6 border-b border-[#041A29]/12 pb-8">
+            <div className="max-w-2xl">
+              <h2 className="font-display text-3xl font-black leading-[1.03] text-[#041A29] sm:text-5xl">
+                Cuatro dominios claros para clasificar lo que ves
+              </h2>
+              <p className="mt-3 text-base text-[#041A29]/72">
+                Separamos las presiones ambientales en doce factores específicos para evitar mezclas ambiguas y dirigir cada alerta al equipo técnico correcto desde el primer toque.
+              </p>
+            </div>
+            <Link
+              href="/reportar"
+              className="inline-flex min-h-[46px] items-center gap-2 rounded-lg bg-[#005F96] px-5 text-sm font-black text-white transition hover:bg-[#041A29]"
+            >
+              <span>Iniciar reporte guiado</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
-          <MascotaCangrejo
-            size="sm"
-            title="Mangle te invita"
-            message="Toca mi tenaza o explora el portal según seas estudiante, turista o mentor."
-            className="max-w-md"
-          />
+
+          <div
+            data-reveal
+            className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-4"
+          >
+            {FACTOR_DOMAINS.map((domain, index) => (
+              <div
+                key={domain.id}
+                className="flex flex-col justify-between border-t-2 pt-5"
+                style={{ borderTopColor: domain.accentHex }}
+              >
+                <div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="font-display text-xl font-black text-[#041A29]">
+                      {domain.title}
+                    </h3>
+                    <span className="font-mono text-xs font-bold text-[#041A29]/45">
+                      0{index + 1}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-[#041A29]/70">
+                    {domain.summary}
+                  </p>
+
+                  <ul className="mt-5 divide-y divide-[#041A29]/10 border-t border-[#041A29]/10">
+                    {domain.subtypes.map((sub) => (
+                      <li key={sub.id} className="py-3">
+                        <Link
+                          href={`/reportar?dominio=${domain.id}&subtipo=${sub.id}`}
+                          className="group flex items-start justify-between gap-2"
+                        >
+                          <span>
+                            <span className="block text-sm font-bold text-[#041A29] group-hover:text-[#005F96]">
+                              {sub.label}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-[#041A29]/60">
+                              {sub.description}
+                            </span>
+                          </span>
+                          <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-[#041A29]/35 transition group-hover:translate-x-0.5 group-hover:text-[#005F96]" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          {/* Escuelas */}
-          <Link
-            href="/escuelas"
-            className="group relative flex min-h-[340px] flex-col justify-end overflow-hidden rounded-[1.85rem] bg-[#08334C] p-6 text-white shadow-xl"
-          >
-            <img
-              src="/images/escuelas-guardianes.png"
-              alt="Estudiantes guardianes del manglar"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-coastal group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#052336] via-[#052336]/50 to-transparent" />
-            <div className="relative z-10">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#1F7A4C] px-3 py-1 text-[11px] font-black uppercase tracking-wider">
-                <GraduationCap className="h-3.5 w-3.5" /> Modo Escuelas
-              </span>
-              <h3 className="font-display mt-2 text-2xl font-black">
-                Guardianes Escolares y Cierre de Ciclo
-              </h3>
-              <p className="mt-1.5 text-xs leading-relaxed text-white/85">
-                Retos por colegio sobre las 828 ha por revisar y consulta pública del estado de cada alerta.
-              </p>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#F8D86F]">
-                Entrar al reto escolar <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Turistas QR */}
-          <Link
-            href="/turista"
-            className="group relative flex min-h-[340px] flex-col justify-end overflow-hidden rounded-[1.85rem] bg-[#08334C] p-6 text-white shadow-xl"
-          >
-            <img
-              src="/images/turista-qr-sendero.png"
-              alt="Sendero turístico en manglar"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-coastal group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#052336] via-[#052336]/50 to-transparent" />
-            <div className="relative z-10">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EDB512] px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[#08334C]">
-                <Compass className="h-3.5 w-3.5" /> Pasaporte Turistas QR
-              </span>
-              <h3 className="font-display mt-2 text-2xl font-black">
-                Escanea en el sendero sin crear cuenta
-              </h3>
-              <p className="mt-1.5 text-xs leading-relaxed text-white/85">
-                Ficha educativa de 30 segundos, QR real escaneable y reporte instantáneo geolocalizado.
-              </p>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[#F8D86F]">
-                Probar estaciones QR <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
-              </span>
-            </div>
-          </Link>
-
-          {/* Validación + Participación */}
-          <div className="flex flex-col justify-between gap-4 rounded-[1.85rem] border border-[#08334C]/10 bg-white p-6 shadow-xl">
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#005F96]/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[#005F96]">
-                <ShieldCheck className="h-3.5 w-3.5" /> Gobernanza &amp; Fase 2 CRA
-              </span>
-              <h3 className="font-display mt-3 text-2xl font-black text-[#08334C]">
-                Doble Validación y Proyectos MGA
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#08334C]/75">
-                Los mentores comunitarios y académicos validan cada reporte antes de emitir alerta CRA, mientras organizaciones formulan proyectos con checklists Res. 1263/2018.
-              </p>
+      {/* CAPÍTULO 5: SOSTENIBILIDAD COMUNITARIA — ESCUELAS + TURISTAS QR */}
+      <section className="border-t border-[#041A29]/10 bg-[#EDF2F6] py-20 text-[#041A29] lg:py-28">
+        <div className="mx-auto max-w-[1440px] space-y-20 px-5 lg:px-10">
+          {/* Split Escuelas */}
+          <div className="grid items-center gap-10 lg:grid-cols-12">
+            <div data-clip-reveal className="overflow-hidden rounded-xl lg:col-span-7">
+              <img
+                src="/images/escuelas-guardianes.png"
+                alt="Estudiantes del Atlántico realizando monitoreo ciudadano de manglares"
+                className="h-[320px] w-full object-cover sm:h-[420px]"
+              />
             </div>
 
-            <div className="space-y-2.5">
+            <div data-reveal className="space-y-5 lg:col-span-5">
+              <h2 className="font-display text-3xl font-black leading-[1.05] text-[#041A29] sm:text-4xl">
+                Escuelas que adoptan las 828 hectáreas por revisar
+              </h2>
+              <p className="text-base leading-relaxed text-[#041A29]/75">
+                Instituciones educativas de Juan de Acosta, Piojó, Puerto Colombia y Barranquilla registran salidas PRAES, confirman cobertura viva y consultan en tiempo real cuándo su alerta pasa de reporte ciudadano a acción oficial de la CRA.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href="/escuelas"
+                  className="inline-flex min-h-[48px] items-center gap-2 rounded-lg bg-[#041A29] px-5 text-sm font-black text-white transition hover:bg-[#005F96]"
+                >
+                  <span>Entrar a Modo Escuelas</span>
+                  <ArrowRight className="h-4 w-4 text-[#F8D86F]" />
+                </Link>
+                <Link
+                  href="/reportar?perfil=estudiante_escuela"
+                  className="inline-flex min-h-[48px] items-center gap-2 rounded-lg border border-[#041A29]/20 bg-white px-5 text-sm font-bold text-[#041A29] transition hover:border-[#005F96]"
+                >
+                  Registrar salida
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Split Turistas QR */}
+          <div className="grid items-center gap-10 lg:grid-cols-12">
+            <div data-reveal className="order-2 space-y-5 lg:order-1 lg:col-span-5">
+              <h2 className="font-display text-3xl font-black leading-[1.05] text-[#041A29] sm:text-4xl">
+                Estaciones QR en senderos y muelles turísticos
+              </h2>
+              <p className="text-base leading-relaxed text-[#041A29]/75">
+                Cualquier visitante escanea el punto en Mallorquín, Puerto Velero o Totumo, descubre en 30 segundos qué especies habitan ese tramo y reporta residuos o fauna sin crear cuentas ni formularios extensos.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href="/turista"
+                  className="inline-flex min-h-[48px] items-center gap-2 rounded-lg bg-[#005F96] px-5 text-sm font-black text-white transition hover:bg-[#041A29]"
+                >
+                  <span>Ver estaciones y códigos QR</span>
+                  <ArrowRight className="h-4 w-4 text-[#F8D86F]" />
+                </Link>
+              </div>
+            </div>
+
+            <div data-clip-reveal className="order-1 overflow-hidden rounded-xl lg:order-2 lg:col-span-7">
+              <img
+                src="/images/turista-qr-sendero.png"
+                alt="Sendero elevado con estación QR en manglar del Caribe colombiano"
+                className="h-[320px] w-full object-cover sm:h-[420px]"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CAPÍTULO 6: CAMPO INSTITUCIONAL AZUL CRA (#005F96) — GOBERNANZA Y VALIDACIÓN */}
+      <section className="bg-[#005F96] py-20 text-white lg:py-24">
+        <div className="mx-auto max-w-[1440px] px-5 lg:px-10">
+          <div data-reveal className="grid gap-10 lg:grid-cols-2 lg:divide-x lg:divide-white/20">
+            <div className="space-y-5 lg:pr-10">
+              <ShieldCheck className="h-8 w-8 text-[#F8D86F]" strokeWidth={1.8} />
+              <h2 className="font-display text-3xl font-black leading-tight text-white">
+                Doble validación antes de activar alertas oficiales
+              </h2>
+              <p className="text-sm leading-relaxed text-white/85 sm:text-base">
+                Ningún dato sin verificar dispara operativos en falso. Cada reporte suma puntaje en el Semáforo de Confiabilidad (0–100) combinando foto con EXIF, GPS preciso, contraste con los 524 puntos ground-truth y aval de mentor comunitario y académico.
+              </p>
               <Link
                 href="/validar"
-                className="flex items-center justify-between rounded-2xl bg-[#F7F3EA] p-3.5 text-xs font-black text-[#08334C] transition hover:bg-[#005F96] hover:text-white"
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-lg bg-white px-5 text-sm font-black text-[#041A29] transition hover:bg-[#F8D86F]"
               >
-                <span className="inline-flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-[#1F7A4C]" />
-                  Consola de Mentores (Semáforo 0–100)
-                </span>
+                <span>Abrir consola de mentores</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
+            </div>
+
+            <div className="space-y-5 border-t border-white/20 pt-10 lg:border-t-0 lg:pl-10 lg:pt-0">
+              <Users className="h-8 w-8 text-[#F8D86F]" strokeWidth={1.8} />
+              <h2 className="font-display text-3xl font-black leading-tight text-white">
+                Actores, checklists Res. 1263/2018 y formulación MGA
+              </h2>
+              <p className="text-sm leading-relaxed text-white/85 sm:text-base">
+                Organizaciones locales, ONG, academia y entidades públicas registran iniciativas sobre el mapa satelital, heredan automáticamente la acción del Plan de Manejo CRA y generan borradores prellenados MGA (DNP) y nota conceptual CO₂e.
+              </p>
               <Link
                 href="/participacion"
-                className="flex items-center justify-between rounded-2xl bg-[#F7F3EA] p-3.5 text-xs font-black text-[#08334C] transition hover:bg-[#005F96] hover:text-white"
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-lg border border-white/35 px-5 text-sm font-black text-white transition hover:bg-white hover:text-[#041A29]"
               >
-                <span className="inline-flex items-center gap-2">
-                  <Trees className="h-4 w-4 text-[#005F96]" />
-                  Actores y Formulador MGA / CO₂e
-                </span>
+                <span>Ir a participación y proyectos</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
         </div>
       </section>
+
+      {/* PIE INSTITUCIONAL */}
+      <footer className="border-t border-white/12 bg-[#041A29] py-14 text-white">
+        <div className="mx-auto grid max-w-[1440px] gap-10 px-5 lg:grid-cols-12 lg:px-10">
+          <div className="space-y-3 lg:col-span-5">
+            <img
+              src="/media/logo_cra_blanco.png"
+              alt="CRA Atlántico"
+              className="h-10 w-auto object-contain"
+            />
+            <p className="max-w-md text-xs leading-relaxed text-white/65">
+              Plataforma de ciencia ciudadana y gobernanza de manglares del departamento del Atlántico. Exportaciones abiertas CSV y GeoJSON anonimizadas conforme a la Ley 1581 de 2012. Asistencia de clasificación multimodal con Gemini vía OpenRouter y respaldo heurístico offline.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 text-xs sm:grid-cols-3 lg:col-span-7">
+            <div className="space-y-2.5">
+              <p className="font-bold text-[#F8D86F]">Campo</p>
+              <Link href="/reportar" className="block text-white/75 hover:text-white">
+                Reportar en campo
+              </Link>
+              <Link href="/escuelas" className="block text-white/75 hover:text-white">
+                Modo Escuelas PRAES
+              </Link>
+              <Link href="/turista" className="block text-white/75 hover:text-white">
+                Estaciones QR Turistas
+              </Link>
+            </div>
+            <div className="space-y-2.5">
+              <p className="font-bold text-[#F8D86F]">Gobernanza CRA</p>
+              <Link href="/cra" className="block text-white/75 hover:text-white">
+                Sala Operativa Satelital
+              </Link>
+              <Link href="/validar" className="block text-white/75 hover:text-white">
+                Consola de Mentores
+              </Link>
+              <Link href="/participacion" className="block text-white/75 hover:text-white">
+                Actores y Formulación MGA
+              </Link>
+            </div>
+            <div className="space-y-2.5">
+              <p className="font-bold text-[#F8D86F]">Datos abiertos</p>
+              <a
+                href="/api/open-data?format=csv"
+                className="block text-white/75 hover:text-white"
+              >
+                Descargar CSV (Ley 1581)
+              </a>
+              <a
+                href="/api/open-data?format=geojson"
+                className="block text-white/75 hover:text-white"
+              >
+                Descargar GeoJSON
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

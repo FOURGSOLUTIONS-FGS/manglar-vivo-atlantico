@@ -1,47 +1,54 @@
 import { NextResponse } from "next/server";
-import { EVENT_CATEGORIES, type EventTypeId } from "@/lib/cra-domain";
+import { ALL_SUBTYPES, EVENT_CATEGORIES, type EventTypeId } from "@/lib/cra-domain";
 
 function heuristicClassify(input: {
   tipoEvento?: string;
+  subtipoEvento?: string;
   descripcion?: string;
   zonaManglar?: string;
   enZonaPorRevisar?: boolean;
 }) {
   const txt = (input.descripcion || "").toLowerCase();
-  let tipoSugerido: EventTypeId = (input.tipoEvento as EventTypeId) || "otro";
+  const subtypeMeta = ALL_SUBTYPES.find((s) => s.id === input.subtipoEvento);
+  let tipoSugerido: EventTypeId =
+    subtypeMeta?.eventType || (input.tipoEvento as EventTypeId) || "otro";
   let clasificacion =
+    subtypeMeta?.technicalHint ||
     EVENT_CATEGORIES.find((c) => c.id === tipoSugerido)?.technicalHint ||
     "Observación de ecosistema de manglar";
-  let severidad: "alta" | "media" | "baja" = "media";
+  let severidad: "alta" | "media" | "baja" = subtypeMeta?.defaultPriority || "media";
 
-  if (/tala|corte|motosierra|relleno|quema|maquinaria/.test(txt) || tipoSugerido === "tala_relleno") {
-    tipoSugerido = "tala_relleno";
-    clasificacion = "Afectación directa de cobertura de manglar (tala/relleno/quema)";
-    severidad = "alta";
-  } else if (/caño|seco|amarill|tapon|salin|sequía|sequia/.test(txt) || tipoSugerido === "cambio_hidrico") {
-    tipoSugerido = "cambio_hidrico";
-    clasificacion = "Alteración hidrológica o estrés hídrico en dosel de manglar";
-    severidad = "alta";
-  } else if (/basura|plástico|plastico|escombro|aceite|vertimiento|aguas negras/.test(txt) || tipoSugerido === "contaminacion_residuos") {
-    tipoSugerido = "contaminacion_residuos";
-    clasificacion = "Presión antrópica por residuos sólidos o vertimiento costero";
-    severidad = "media";
-  } else if (/cangrejo|garza|ave|pez|fauna|trampa|red/.test(txt) || tipoSugerido === "dano_fauna_especies") {
-    tipoSugerido = "dano_fauna_especies";
-    clasificacion = "Perturbación sobre fauna bentónica o avifauna asociada al manglar";
-    severidad = "media";
-  } else if (input.enZonaPorRevisar) {
-    clasificacion = "Etiqueta ciudadana ground-truth en área de 828 ha por revisar";
-    severidad = "baja";
+  if (!subtypeMeta) {
+    if (/tala|corte|motosierra|relleno|quema|maquinaria/.test(txt) || tipoSugerido === "tala_relleno") {
+      tipoSugerido = "tala_relleno";
+      clasificacion = "Afectación directa de cobertura de manglar (tala/relleno/quema)";
+      severidad = "alta";
+    } else if (/caño|seco|amarill|tapon|salin|sequía|sequia|erosi/.test(txt) || tipoSugerido === "cambio_hidrico") {
+      tipoSugerido = "cambio_hidrico";
+      clasificacion = "Alteración hidrológica o estrés hídrico en dosel de manglar";
+      severidad = "alta";
+    } else if (/basura|plástico|plastico|escombro|aceite|vertimiento|aguas negras/.test(txt) || tipoSugerido === "contaminacion_residuos") {
+      tipoSugerido = "contaminacion_residuos";
+      clasificacion = "Presión antrópica por residuos sólidos o vertimiento costero";
+      severidad = "media";
+    } else if (/cangrejo|garza|ave|pez|fauna|trampa|red/.test(txt) || tipoSugerido === "dano_fauna_especies") {
+      tipoSugerido = "dano_fauna_especies";
+      clasificacion = "Perturbación sobre fauna bentónica o avifauna asociada al manglar";
+      severidad = "media";
+    } else if (input.enZonaPorRevisar) {
+      clasificacion = "Etiqueta ciudadana ground-truth en área de 828 ha por revisar";
+      severidad = "baja";
+    }
   }
 
   return {
     mode: "heuristic_local_fallback",
-    model: "reglas-cra-atlantico-v1",
+    model: "reglas-cra-atlantico-v2",
     tipo_evento_sugerido: tipoSugerido,
+    subtipo_evento: subtypeMeta?.id || input.subtipoEvento || null,
     clasificacion_tecnica: clasificacion,
     severidad,
-    confianza: 0.78,
+    confianza: 0.79,
     resumen_tecnico: `Preclasificación automática para ${input.zonaManglar || "Atlántico"} (modo offline/fallback local).`,
     recomendacion_cra:
       severidad === "alta"
@@ -96,17 +103,22 @@ export async function POST(request: Request) {
     const {
       imageDataUrl,
       tipoEvento,
+      subtipoEvento,
+      factorDominio,
       descripcion,
       zonaManglar,
       enZonaPorRevisar,
     } = body as {
       imageDataUrl?: string;
       tipoEvento?: string;
+      subtipoEvento?: string;
+      factorDominio?: string;
       descripcion?: string;
       zonaManglar?: string;
       enZonaPorRevisar?: boolean;
     };
 
+    const subtypeMeta = ALL_SUBTYPES.find((s) => s.id === subtipoEvento);
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
     const primaryModel = process.env.OPENROUTER_MODEL?.trim() || "google/gemini-2.5-flash";
     const fallbackModel =
@@ -114,7 +126,7 @@ export async function POST(request: Request) {
 
     if (!apiKey) {
       return NextResponse.json(
-        heuristicClassify({ tipoEvento, descripcion, zonaManglar, enZonaPorRevisar })
+        heuristicClassify({ tipoEvento, subtipoEvento, descripcion, zonaManglar, enZonaPorRevisar })
       );
     }
 
@@ -133,7 +145,8 @@ Analiza este reporte ciudadano de manglar y responde ÚNICAMENTE un JSON válido
 Datos del ciudadano:
 - Sector CRA: ${zonaManglar || "No especificado"}
 - En zona de 828 ha por revisar: ${enZonaPorRevisar ? "Sí" : "No"}
-- Categoría elegida: ${tipoEvento || "otro"}
+- Dominio ambiental: ${factorDominio || "No especificado"}
+- Factor específico elegido: ${subtypeMeta ? `${subtypeMeta.label} (${subtypeMeta.id})` : tipoEvento || "otro"}
 - Descripción: ${descripcion || "(sin descripción adicional)"}`,
       },
     ];
@@ -156,13 +169,20 @@ Datos del ciudadano:
         return NextResponse.json({
           mode: "openrouter_live",
           model: candidate,
+          subtipo_evento: subtypeMeta?.id || subtipoEvento || null,
           ...attempt.parsed,
         });
       }
       lastStatus = attempt.status;
     }
 
-    const fallback = heuristicClassify({ tipoEvento, descripcion, zonaManglar, enZonaPorRevisar });
+    const fallback = heuristicClassify({
+      tipoEvento,
+      subtipoEvento,
+      descripcion,
+      zonaManglar,
+      enZonaPorRevisar,
+    });
     return NextResponse.json({ ...fallback, openrouter_status: lastStatus });
   } catch {
     return NextResponse.json(heuristicClassify({}));

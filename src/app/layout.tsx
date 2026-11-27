@@ -1,9 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Lato } from "next/font/google";
+import { Archivo, Lato } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { SwRegister } from "@/components/SwRegister";
 import { SmoothScroll } from "@/components/SmoothScroll";
+
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["700", "800", "900"],
+  variable: "--font-archivo",
+  display: "swap",
+});
 
 const lato = Lato({
   subsets: ["latin"],
@@ -12,26 +19,20 @@ const lato = Lato({
   display: "swap",
 });
 
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "700", "900"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "Manglar Vivo Atlántico — Ciencia Ciudadana CRA",
+  title: "Manglar Vivo Atlántico · Monitoreo Ciudadano y Satelital CRA",
   description:
-    "Plataforma offline-first de ciencia ciudadana, validación territorial y gobernanza para los manglares del departamento del Atlántico (CRA).",
+    "Plataforma offline-first de ciencia ciudadana, doble validación territorial y gobernanza de manglares del departamento del Atlántico (CRA).",
   manifest: "/manifest.json",
-  icons: {
-    icon: "/images/pwa-icon-192.png",
-    apple: "/images/pwa-icon-192.png",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Manglar Vivo",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#005F96",
+  themeColor: "#041A29",
   width: "device-width",
   initialScale: 1,
 };
@@ -42,12 +43,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${lato.variable} ${fraunces.variable}`}>
-      <body className="coastal-grain min-h-[100dvh] pb-24 md:pb-14">
-        <SmoothScroll />
+    <html lang="es" className={`${archivo.variable} ${lato.variable}`}>
+      <body className="min-h-screen antialiased">
         <SwRegister />
+        <SmoothScroll />
         <Navbar />
-        <main>{children}</main>
+        <main className="min-h-screen pb-24 md:pb-0">{children}</main>
       </body>
     </html>
   );
