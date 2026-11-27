@@ -1,0 +1,8 @@
+*.kmz
+public/data/geo/coastal_priorities.geojson
+.env*.local
+.agents
+node_modules
+.next
+scripts
+docs

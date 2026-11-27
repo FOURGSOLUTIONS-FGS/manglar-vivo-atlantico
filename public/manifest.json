@@ -1,0 +1,27 @@
+{
+  "name": "Manglar Vivo Atlántico — CRA",
+  "short_name": "Manglar Vivo",
+  "description": "Ciencia ciudadana offline-first para monitoreo, validación y conservación de los manglares del Atlántico (CRA).",
+  "id": "/reportar",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F3EA",
+  "theme_color": "#005F96",
+  "lang": "es-CO",
+  "icons": [
+    {
+      "src": "/images/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

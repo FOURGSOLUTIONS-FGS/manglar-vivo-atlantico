@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#005F96"/>
+      <stop offset="100%" stop-color="#08334C"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F8D86F"/>
+      <stop offset="100%" stop-color="#EDB512"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sea)"/>
+  <!-- Sol caribeño detrás -->
+  <circle cx="256" cy="188" r="98" fill="url(#gold)" opacity="0.22"/>
+  <circle cx="256" cy="188" r="68" fill="url(#gold)"/>
+  <!-- Copa del manglar -->
+  <path d="M162 214 C162 150 210 118 256 118 C302 118 350 150 350 214 C350 232 332 246 312 246 L200 246 C180 246 162 232 162 214 Z" fill="#33A02C"/>
+  <path d="M204 198 C204 158 232 138 256 138 C280 138 308 158 308 198 Z" fill="#1F7A4C" opacity="0.5"/>
+  <!-- Tronco y raíces zancudas -->
+  <g stroke="#F8D86F" stroke-width="18" stroke-linecap="round" fill="none">
+    <path d="M256 226 L256 322"/>
+    <path d="M256 266 Q204 294 176 356"/>
+    <path d="M256 266 Q308 294 336 356"/>
+    <path d="M256 288 Q226 320 218 358"/>
+    <path d="M256 288 Q286 320 294 358"/>
+  </g>
+  <!-- Ondas de ciénaga -->
+  <path d="M84 366 Q140 344 196 366 T308 366 T428 366" stroke="#7AD3F6" stroke-width="16" stroke-linecap="round" fill="none"/>
+  <path d="M112 406 Q168 386 224 406 T336 406 T400 406" stroke="#EDB512" stroke-width="12" stroke-linecap="round" fill="none" opacity="0.9"/>
+</svg>

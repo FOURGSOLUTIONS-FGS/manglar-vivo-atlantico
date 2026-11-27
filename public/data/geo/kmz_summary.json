@@ -1,0 +1,29 @@
+{
+  "total_placemarks": 14732,
+  "coastal_features_exported": 9408,
+  "tolerance_deg": 0.0003,
+  "coastal_bbox_wgs84": [
+    -75.249527,
+    10.512833,
+    -74.823554,
+    11.063002
+  ],
+  "by_nomszh": {
+    "Rio Magdalena": 92,
+    "Arroyos Directos al Caribe": 7079,
+    "Canal del Dique": 3271,
+    "Directos al Bajo Magdalena entre Calamar y desembocadura al mar Caribe (mi)": 1961,
+    "Cienaga Mallorquin": 2329
+  },
+  "by_val_priori": {
+    "Bajo": 2837,
+    "Alto": 6505,
+    "Medio": 5390
+  },
+  "by_accion_gen": {
+    "Preservación": 5815,
+    "Rehabilitación": 684,
+    "Restauración": 4335,
+    "Recuperación": 3898
+  }
+}

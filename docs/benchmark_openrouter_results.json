@@ -1,0 +1,131 @@
+{
+  "ranAt": "2026-11-27T16:03:45.077Z",
+  "results": [
+    {
+      "modelId": "anthropic/claude-haiku-5.5",
+      "httpOk": "2/2",
+      "avgLatencyMs": 2681,
+      "jsonOk": "0/2",
+      "accuracy": "0/4",
+      "tipoHits": 0,
+      "sevHits": 0,
+      "avgPromptTok": 654,
+      "avgCompTok": 350,
+      "costPer1kReportsUsd": 0.24,
+      "errors": [],
+      "sampleCase2": null
+    },
+    {
+      "modelId": "qwen/qwen3.8-omni-flash",
+      "httpOk": "2/2",
+      "avgLatencyMs": 3208,
+      "jsonOk": "2/2",
+      "accuracy": "3/4",
+      "tipoHits": 2,
+      "sevHits": 1,
+      "avgPromptTok": 471,
+      "avgCompTok": 318,
+      "costPer1kReportsUsd": 0.22,
+      "errors": [],
+      "sampleCase2": {
+        "tipo_evento_sugerido": "cambio_hidrico",
+        "clasificacion_tecnica": "Obstrucción sedimentaria de caño con estancamiento hídrico y clorosis foliar",
+        "severidad": "media",
+        "confianza": 0.78,
+        "resumen_tecnico": "Taponamiento de caño por sedimentos genera agua estancada y hojas amarillentas, alterando el flujo mareal del manglar en Tubará–Juan de Acosta.",
+        "recomendacion_cra": "Verificar in situ, evaluar dragado suave y restaurar conectividad hidrológica del caño."
+      }
+    },
+    {
+      "modelId": "qwen/qwen3.7-flash",
+      "httpOk": "2/2",
+      "avgLatencyMs": 3199,
+      "jsonOk": "0/2",
+      "accuracy": "0/4",
+      "tipoHits": 0,
+      "sevHits": 0,
+      "avgPromptTok": 441,
+      "avgCompTok": 351,
+      "costPer1kReportsUsd": 0.059,
+      "errors": [],
+      "sampleCase2": null
+    },
+    {
+      "modelId": "openai/gpt-5.6-luna",
+      "httpOk": "2/2",
+      "avgLatencyMs": 3119,
+      "jsonOk": "2/2",
+      "accuracy": "3/4",
+      "tipoHits": 2,
+      "sevHits": 1,
+      "avgPromptTok": 453,
+      "avgCompTok": 247,
+      "costPer1kReportsUsd": 0.386,
+      "errors": [],
+      "sampleCase2": {
+        "tipo_evento_sugerido": "cambio_hidrico",
+        "clasificacion_tecnica": "Alteración de conectividad hidrológica por sedimentación y obstrucción del caño, con posible estrés vegetal",
+        "severidad": "media",
+        "confianza": 0.93,
+        "resumen_tecnico": "En manglar del Atlántico, el taponamiento puede reducir intercambio mareal, estancar agua y explicar amarillamiento; requiere verificación en campo.",
+        "recomendacion_cra": "Inspeccionar caño, verificar mareas y sedimentos, y evaluar recuperación hidráulica sin remover manglar indiscriminadamente."
+      }
+    },
+    {
+      "modelId": "google/gemini-3.5-flash-lite",
+      "httpOk": "2/2",
+      "avgLatencyMs": 1753,
+      "jsonOk": "2/2",
+      "accuracy": "3/4",
+      "tipoHits": 2,
+      "sevHits": 1,
+      "avgPromptTok": 1316,
+      "avgCompTok": 154,
+      "costPer1kReportsUsd": 0.778,
+      "errors": [],
+      "sampleCase2": {
+        "tipo_evento_sugerido": "cambio_hidrico",
+        "clasificacion_tecnica": "Obstrucción de canal mareal con sedimentación y estrés hídrico en manglar.",
+        "severidad": "media",
+        "confianza": 0.92,
+        "resumen_tecnico": "En el sector Tubará – Juan de Acosta, el taponamiento del caño reduce el flujo hídrico, generando agua estancada y clorosis foliar en el manglar.",
+        "recomendacion_cra": "Realizar visita técnica de inspección para programar la limpieza y descolmatación del caño afectado."
+      }
+    },
+    {
+      "modelId": "google/gemini-3.8-flash",
+      "httpOk": "2/2",
+      "avgLatencyMs": 3254,
+      "jsonOk": "0/2",
+      "accuracy": "0/4",
+      "tipoHits": 0,
+      "sevHits": 0,
+      "avgPromptTok": 1316,
+      "avgCompTok": 346,
+      "costPer1kReportsUsd": 2.513,
+      "errors": [],
+      "sampleCase2": null
+    },
+    {
+      "modelId": "google/gemini-2.5-flash",
+      "httpOk": "2/2",
+      "avgLatencyMs": 2202,
+      "jsonOk": "2/2",
+      "accuracy": "4/4",
+      "tipoHits": 2,
+      "sevHits": 2,
+      "avgPromptTok": 515,
+      "avgCompTok": 138,
+      "costPer1kReportsUsd": 0.499,
+      "errors": [],
+      "sampleCase2": {
+        "tipo_evento_sugerido": "cambio_hidrico",
+        "clasificacion_tecnica": "Alteración hidrológica por sedimentación en caño de manglar",
+        "severidad": "alta",
+        "confianza": 0.9,
+        "resumen_tecnico": "El taponamiento de caños por sedimentos en manglares del Atlántico interrumpe el flujo de agua, causando estrés hídrico y muerte de árboles.",
+        "recomendacion_cra": "Realizar visita técnica urgente para evaluar la afectación y planificar acciones de dragado y restauración."
+      }
+    }
+  ]
+}
