@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
@@ -131,6 +131,50 @@ export function AdminAnalytics({
   const [range, setRange] = useState<7 | 30 | 90>(90);
   const [sectorFilter, setSectorFilter] = useState<number | "all">("all");
   const [deployedSectors, setDeployedSectors] = useState<number[]>([3, 1]);
+  const [nasaFires, setNasaFires] = useState<{
+    source: string;
+    fetchedAt: string;
+    totalSouthAmericaScanned: number;
+    atlanticoCount: number;
+    caribeCount: number;
+    atlantico: Array<{
+      id: string;
+      latitude: number;
+      longitude: number;
+      brightnessK: number;
+      frpMw: number;
+      confidence: string;
+      satellite: string;
+      acqDate: string;
+      acqTimeUtc: string;
+      nearestSectorName: string;
+      distanceToMangroveKm: number;
+      riskTier: string;
+    }>;
+    caribe: Array<{
+      id: string;
+      latitude: number;
+      longitude: number;
+      brightnessK: number;
+      frpMw: number;
+      confidence: string;
+      satellite: string;
+      acqDate: string;
+      acqTimeUtc: string;
+      nearestSectorName: string;
+      distanceToMangroveKm: number;
+      riskTier: string;
+    }>;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/nasa-fires")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setNasaFires(d);
+      })
+      .catch(() => {});
+  }, []);
 
   const now = useMemo(() => Date.now(), [reports, dispatches, range]);
 
@@ -781,6 +825,71 @@ export function AdminAnalytics({
               ))
             )}
           </div>
+        </div>
+      </section>
+
+      {/* 2B. SATÉLITE NASA FIRMS — FOCOS DE CALOR Y FUEGO EN TIEMPO REAL (24H) */}
+      <section className="overflow-hidden rounded-xl border border-[#C84023]/45 bg-[#082438]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/12 bg-[#041A29]/65 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#C84023] text-white">
+              <Flame className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="font-display text-lg font-black text-white">
+                Satélite NASA FIRMS · Focos de fuego en vivo (últimas 24 h)
+              </h3>
+              <p className="text-xs text-white/70">
+                Datos abiertos gratuitos de los satélites NOAA-20 y NOAA-21 VIIRS (375 m) cruzados con los 4 sectores de manglar del Atlántico.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs font-black">
+            <span className="rounded-lg bg-[#C84023]/25 px-3 py-1.5 text-[#FCA5A5]">
+              {nasaFires ? `${nasaFires.atlanticoCount} en Atlántico` : "Consultando NASA..."}
+            </span>
+            <span className="rounded-lg border border-white/15 bg-[#041A29] px-3 py-1.5 text-[#F8D86F]">
+              {nasaFires ? `${nasaFires.caribeCount} en Caribe cercano` : "..."}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+          {(nasaFires?.atlantico?.length
+            ? nasaFires.atlantico
+            : nasaFires?.caribe || []
+          )
+            .slice(0, 4)
+            .map((hot) => (
+              <a
+                key={hot.id}
+                href={`https://www.google.com/maps?q=${hot.latitude},${hot.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col justify-between rounded-lg border border-white/12 bg-[#041A29]/75 p-3.5 transition hover:border-[#EDB512]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded bg-[#C84023]/30 px-2 py-0.5 font-mono text-[10px] font-black text-[#FCA5A5]">
+                    {hot.satellite} · {hot.acqTimeUtc}
+                  </span>
+                  <span className="font-mono text-[11px] font-black text-[#F8D86F]">
+                    a {hot.distanceToMangroveKm} km
+                  </span>
+                </div>
+                <p className="mt-2 text-xs font-black text-white">
+                  Cerca de {hot.nearestSectorName.split(" – ")[0]}
+                </p>
+                <p className="mt-1 font-mono text-[11px] text-white/65">
+                  {hot.latitude.toFixed(4)}, {hot.longitude.toFixed(4)} · {hot.frpMw} MW
+                </p>
+              </a>
+            ))}
+          {nasaFires && nasaFires.caribeCount === 0 && (
+            <p className="col-span-full py-2 text-xs font-bold text-[#86EFAC]">
+              Sin focos térmicos activos detectados por NASA VIIRS en el Caribe cercano en las últimas 24 horas.
+            </p>
+          )}
         </div>
       </section>
 

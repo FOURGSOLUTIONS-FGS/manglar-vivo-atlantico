@@ -7,8 +7,10 @@ import { createDefaultAlertDispatcher } from "@/core/alerts/dispatcher";
 import {
   getZernioApiKey,
   replyZernioConversation,
+  sendZernioTyping,
   verifyZernioSignature,
 } from "@/lib/zernio";
+import { fetchNasaFirmsData } from "@/app/api/nasa-fires/route";
 
 // Deduplicación en memoria por X-Zernio-Event-Id (TTL 15 min)
 const PROCESSED_EVENTS = new Map<string, number>();
@@ -49,6 +51,8 @@ interface ZernioWebhookPayload {
       standby?: boolean;
       latitude?: number;
       longitude?: number;
+      interactiveType?: string;
+      interactiveId?: string;
     };
   };
 }
@@ -186,8 +190,21 @@ export async function POST(request: Request) {
   const accountId = payload.account?.accountId || payload.account?.id || "";
   const conversationId = msg.conversationId || "";
   const rawText = (msg.text || "").trim();
+  const interactiveId = (msg.metadata?.interactiveId || "").trim().toLowerCase();
+  const lowText = rawText.toLowerCase();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://manglar.arpadura.com").replace(/\/$/, "");
   const supabase = createServerSupabase();
+
+  const canReply = Boolean(conversationId && accountId);
+  if (canReply) {
+    void sendZernioTyping(conversationId, accountId);
+  }
+
+  const MAIN_BUTTONS = [
+    { type: "postback" as const, title: "📸 Reportar manglar", payload: "btn_reportar" },
+    { type: "postback" as const, title: "🌿 Explorar 4 puntos", payload: "btn_explorar" },
+    { type: "postback" as const, title: "🔥 Fuego NASA hoy", payload: "btn_nasa" },
+  ];
 
   // 1. Consulta rápida de estado por código (ej: "estado MGL-2026-1234")
   const codeMatch = rawText.match(/MGL-[A-Z0-9]+-[A-Z0-9]+/i);
@@ -200,28 +217,139 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     const replyText = found
-      ? `🌿 Estado de ${found.tracking_code} (${found.zona_manglar}):\n• Validación: ${found.estado_validacion}\n• Atención CRA: ${found.attention_status}\n• Confiabilidad: ${found.puntaje_confiabilidad}/100\nVer detalle: ${siteUrl}/escuelas?code=${found.tracking_code}`
-      : `No encontramos el código ${code}. Si deseas reportar algo en el manglar, envíanos una foto y el sector (ej. Mallorquín, Puerto Velero, Juan de Acosta o Totumo).`;
+      ? `🌿 Así va tu reporte *${found.tracking_code}* (${found.zona_manglar}):\n• Revisión: ${found.estado_validacion}\n• Atención CRA: ${found.attention_status}\n• Confiabilidad: ${found.puntaje_confiabilidad}/100\n\nVer detalle completo: ${siteUrl}/escuelas?code=${found.tracking_code}`
+      : `No encontré el código *${code}*. Revisa las letras o envíame una foto nueva del manglar y yo la registro de una vez.`;
 
-    if (conversationId && accountId) {
-      await replyZernioConversation({ conversationId, accountId, message: replyText }).catch(() => {});
+    if (canReply) {
+      await replyZernioConversation({
+        conversationId,
+        accountId,
+        message: replyText,
+        buttons: MAIN_BUTTONS,
+      }).catch(() => {});
     }
-    return NextResponse.json({ ok: true, handled: "status_lookup", code });
+    return NextResponse.json({ ok: true, handled: "status_lookup", code, assistantReplyPreview: replyText });
   }
 
-  // 2. Mensaje de bienvenida/ayuda si solo saludó sin adjuntos
-  const imageAttachment = (msg.attachments || []).find((a) => a.type === "image" && a.url);
-  if (!imageAttachment && rawText.length < 8) {
-    const helpMsg =
-      `🌿 ¡Hola! Estás conectado a *Manglar Vivo Atlántico (CRA)* vía ${platform.toUpperCase()}.\n\n` +
-      `Para enviar un reporte ciudadano desde aquí:\n` +
-      `1️⃣ Envía una foto del manglar o amenaza (tala, quema, basura, caño seco o fauna).\n` +
-      `2️⃣ Escribe el sector (Mallorquín, Puerto Velero, Juan de Acosta o Totumo) o comparte tu ubicación.\n\n` +
-      `También puedes abrir la app offline: ${siteUrl}/reportar`;
-    if (conversationId && accountId) {
-      await replyZernioConversation({ conversationId, accountId, message: helpMsg }).catch(() => {});
+  // 2A. Botón interactivo: 🔥 Fuego NASA hoy (consulta EN VIVO a satélites NASA FIRMS VIIRS 375m)
+  if (interactiveId === "btn_nasa" || /fuego nasa|sat[eé]lite nasa|incendios hoy/i.test(lowText)) {
+    const nasa = await fetchNasaFirmsData().catch(() => null);
+    const atlCount = nasa?.atlantico.length ?? 0;
+    const caribeCount = nasa?.caribe.length ?? 0;
+    const closest = nasa?.caribe[0];
+    const nasaMsg =
+      `🛰️ *Monitor de Fuego NASA en Vivo (últimas 24 h)*\n\n` +
+      `• Focos de calor en el *Atlántico*: *${atlCount}*\n` +
+      `• Focos en el *Caribe cercano*: *${caribeCount}*\n` +
+      (closest
+        ? `• Punto más cercano al manglar: a *${closest.distanceToMangroveKm} km* de *${closest.nearestSectorName}* (satélite ${closest.satellite}, ${closest.acqTimeUtc}).\n\n`
+        : `\n✅ Sin puntos críticos pegados al manglar ahora mismo.\n\n`) +
+      `Si ves humo o fuego real cerca, ¡envíame una foto ahora mismo a distancia segura y avisamos a la CRA!`;
+
+    if (canReply) {
+      await replyZernioConversation({
+        conversationId,
+        accountId,
+        attachmentUrl: `${siteUrl}/media/sat/z3_img.jpg`,
+        attachmentType: "image",
+        message: nasaMsg,
+        buttons: [
+          { type: "postback", title: "📸 Reportar humo", payload: "btn_reportar" },
+          { type: "postback", title: "🌿 Explorar 4 puntos", payload: "btn_explorar" },
+          { type: "postback", title: "🏠 Menú principal", payload: "btn_menu" },
+        ],
+      }).catch(() => {});
     }
-    return NextResponse.json({ ok: true, handled: "welcome_help" });
+    return NextResponse.json({
+      ok: true,
+      handled: "nasa_fire_live",
+      atlanticoFires: atlCount,
+      caribeFires: caribeCount,
+      assistantReplyPreview: nasaMsg,
+    });
+  }
+
+  // 2B. Botón interactivo: 🌿 Explorar los 4 manglares + Pasaporte Costero
+  if (interactiveId === "btn_explorar" || /explorar 4 puntos|pasaporte|especies|turista/i.test(lowText)) {
+    const exploreMsg =
+      `🌿 *¡Explora los 4 Manglares del Atlántico y gana tus sellos!*\n\n` +
+      `1️⃣ *Mallorquín* (Barranquilla): ${siteUrl}/p/1\n` +
+      `2️⃣ *Puerto Velero* (Pto. Colombia): ${siteUrl}/p/2\n` +
+      `3️⃣ *Juan de Acosta* (Estuario): ${siteUrl}/p/3\n` +
+      `4️⃣ *Ciénaga del Totumo* (Piojó): ${siteUrl}/p/4\n\n` +
+      `🎧 Cada punto trae *audioguía en voz colombiana*, retos para niños y guía de las 4 especies (rojo, negro, blanco y zaragoza). ¡Compártelo con tu colegio o familia!`;
+
+    if (canReply) {
+      await replyZernioConversation({
+        conversationId,
+        accountId,
+        attachmentUrl: `${siteUrl}/images/og-backdrop.jpg`,
+        attachmentType: "image",
+        message: exploreMsg,
+        buttons: [
+          { type: "postback", title: "📸 Reportar manglar", payload: "btn_reportar" },
+          { type: "postback", title: "🔥 Fuego NASA hoy", payload: "btn_nasa" },
+          { type: "postback", title: "🏠 Menú principal", payload: "btn_menu" },
+        ],
+      }).catch(() => {});
+    }
+    return NextResponse.json({ ok: true, handled: "explore_passport", assistantReplyPreview: exploreMsg });
+  }
+
+  // 2C. Botón interactivo: 📸 Reportar manglar (pide foto + ofrece ubicación nativa 1 toque en WhatsApp)
+  if (interactiveId === "btn_reportar" || /^reportar( manglar| humo)?$/i.test(lowText)) {
+    const guideMsg =
+      `📸 *¡Súper fácil! Haz tu reporte en 2 pasos:*\n\n` +
+      `1️⃣ Envíame *1 foto* de lo que ves (tala, fuego, basura, agua rara, aves o manglar sano) con el lugar (ej: *"Basura en Mallorquín"*).\n` +
+      `2️⃣ Si estás en el lugar, toca abajo para compartir tu ubicación exacta.\n\n` +
+      `⚠️ *Cuídate:* toma la foto siempre desde una distancia segura.`;
+
+    if (canReply) {
+      if (platform === "whatsapp") {
+        await replyZernioConversation({
+          conversationId,
+          accountId,
+          interactive: {
+            type: "location_request_message",
+            body: { text: guideMsg },
+            action: { name: "send_location" },
+          },
+        }).catch(() =>
+          replyZernioConversation({ conversationId, accountId, message: guideMsg }).catch(() => {})
+        );
+      } else {
+        await replyZernioConversation({ conversationId, accountId, message: guideMsg }).catch(() => {});
+      }
+    }
+    return NextResponse.json({ ok: true, handled: "report_guide", assistantReplyPreview: guideMsg });
+  }
+
+  // 2D. Bienvenida inmersiva con FOTO + 3 BOTONES INTERACTIVOS si saluda o toca Menú
+  const imageAttachment = (msg.attachments || []).find((a) => a.type === "image" && a.url);
+  const isGreeting =
+    interactiveId === "btn_menu" ||
+    /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|menu|men[uú]|ayuda|inicio|hi|hey|start|gracias|ok|si|sí)\b/i.test(
+      lowText
+    );
+  if (!imageAttachment && (isGreeting || rawText.length < 8)) {
+    const welcomeMsg =
+      `🌿 *¡Hola! Soy el asistente de Manglar Vivo Atlántico (CRA)*\n\n` +
+      `Aquí puedes cuidar los manglares del Caribe súper fácil, sin descargar nada:\n` +
+      `• Envíame una *foto* y te digo al instante qué detectamos.\n` +
+      `• Toca un botón abajo para empezar 👇`;
+    if (canReply) {
+      await replyZernioConversation({
+        conversationId,
+        accountId,
+        attachmentUrl: `${siteUrl}/images/og-backdrop.jpg`,
+        attachmentType: "image",
+        message: welcomeMsg,
+        buttons: MAIN_BUTTONS,
+      }).catch(() =>
+        replyZernioConversation({ conversationId, accountId, message: welcomeMsg }).catch(() => {})
+      );
+    }
+    return NextResponse.json({ ok: true, handled: "welcome_interactive", assistantReplyPreview: welcomeMsg });
   }
 
   // 3. Descarga de foto adjunta + subida a Supabase Storage + auditoría IA visual
@@ -403,8 +531,25 @@ export async function POST(request: Request) {
     `Explora las 4 estaciones NFC del Atlántico y colecciona tu Pasaporte Costero: ${siteUrl}/p/3\n` +
     `Escribe *"estado ${trackingCode}"* cuando quieras ver el avance.`;
 
-  if (conversationId && accountId) {
-    await replyZernioConversation({ conversationId, accountId, message: replyMessage }).catch(() => {});
+  const minimapImageUrl = `${siteUrl}/api/minimap?lat=${geo.lat}&lon=${geo.lon}&label=${encodeURIComponent(
+    `${geo.sector.municipioPrincipal} · ${trackingCode}`
+  )}&color=${aiPhotoValid === false ? "EDB512" : "16794A"}`;
+
+  if (canReply) {
+    await replyZernioConversation({
+      conversationId,
+      accountId,
+      attachmentUrl: minimapImageUrl,
+      attachmentType: "image",
+      message: replyMessage.slice(0, 620),
+      buttons: [
+        { type: "postback", title: "🌿 Explorar 4 puntos", payload: "btn_explorar" },
+        { type: "postback", title: "🔥 Fuego NASA hoy", payload: "btn_nasa" },
+        { type: "postback", title: "📸 Enviar otra foto", payload: "btn_reportar" },
+      ],
+    }).catch(() =>
+      replyZernioConversation({ conversationId, accountId, message: replyMessage }).catch(() => {})
+    );
   }
 
   return NextResponse.json({

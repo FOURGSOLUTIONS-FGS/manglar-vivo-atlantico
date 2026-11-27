@@ -20,10 +20,45 @@ const lato = Lato({
 });
 
 export const metadata: Metadata = {
-  title: "Manglar Vivo Atlántico · Monitoreo Ciudadano y Satelital CRA",
+  metadataBase: new URL("https://manglar.arpadura.com"),
+  title: {
+    default: "Manglar Vivo Atlántico · Ciencia Ciudadana y Alerta Satelital CRA",
+    template: "%s · Manglar Vivo Atlántico",
+  },
   description:
-    "Plataforma offline-first de ciencia ciudadana, doble validación territorial y gobernanza de manglares del departamento del Atlántico (CRA).",
+    "Reporta sin internet, explora con estaciones NFC, audita fotos con IA y monitorea focos de calor NASA en los manglares del Atlántico (CRA).",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/images/favicon-64.png", sizes: "64x64", type: "image/png" },
+      { url: "/images/pwa-icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/images/pwa-icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
+  openGraph: {
+    type: "website",
+    locale: "es_CO",
+    url: "https://manglar.arpadura.com",
+    siteName: "Manglar Vivo Atlántico · CRA",
+    title: "Manglar Vivo Atlántico · Protege las 828 ha de Manglar",
+    description:
+      "Ciencia ciudadana sin internet, Pasaporte NFC, WhatsApp interactivo con IA y monitoreo satelital NASA + Sentinel-2 para la CRA Atlántico.",
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "Manglar Vivo Atlántico · CRA",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Manglar Vivo Atlántico · Ciencia Ciudadana CRA",
+    description:
+      "Reporta en 3 pasos sin internet, explora estaciones NFC y consulta alertas satelitales NASA en vivo.",
+    images: ["/api/og"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

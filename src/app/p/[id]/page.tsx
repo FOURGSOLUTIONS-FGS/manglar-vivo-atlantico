@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CRA_SECTORS, QR_STATIONS } from "@/lib/cra-domain";
 import { createServerSupabase } from "@/lib/supabase";
 import {
@@ -83,6 +84,37 @@ const STATION_VISUALS: Record<
     ],
   },
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const key = id.trim().toLowerCase();
+  const mappedId = SHORT_ID_MAP[key] || key;
+  const st = QR_STATIONS.find((s) => s.id === mappedId) ?? QR_STATIONS[2];
+  const visuals = STATION_VISUALS[st.id] ?? STATION_VISUALS["juan-acosta-estuario"];
+  const ogUrl = `/api/og?title=${encodeURIComponent(st.nombre)}&subtitle=${encodeURIComponent(
+    st.datoClave
+  )}&badge=${encodeURIComponent(`PUNTO NFC #${visuals.shortCode} · ${st.municipio.toUpperCase()}`)}`;
+
+  return {
+    title: `${st.nombre} · Punto NFC #${visuals.shortCode}`,
+    description: st.datoClave,
+    openGraph: {
+      title: `${st.nombre} · Manglar Vivo Atlántico`,
+      description: st.datoClave,
+      images: [{ url: ogUrl, width: 1200, height: 630, alt: st.nombre }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${st.nombre} · Punto NFC #${visuals.shortCode}`,
+      description: st.datoClave,
+      images: [ogUrl],
+    },
+  };
+}
 
 export default async function NfcPointLandingPage({
   params,

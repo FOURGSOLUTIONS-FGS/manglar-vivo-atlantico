@@ -164,15 +164,50 @@ export async function createZernioConnectLink(params: {
   }>(`/connect/${encodeURIComponent(params.platform)}?${qs.toString()}`);
 }
 
+export interface ZernioReplyButton {
+  type: "postback";
+  title: string;
+  payload: string;
+}
+
 /**
- * Envía una respuesta dentro de una conversación del Inbox Unificado de Zernio
- * (WhatsApp, Telegram, Instagram DM, Facebook Messenger, SMS, X).
+ * Muestra el indicador "Escribiendo..." en WhatsApp / Instagram / Facebook antes de responder.
+ */
+export async function sendZernioTyping(conversationId: string, accountId: string) {
+  return zernioFetch(`/inbox/conversations/${encodeURIComponent(conversationId)}/typing`, {
+    method: "POST",
+    body: { accountId },
+  }).catch(() => null);
+}
+
+/**
+ * Envía una respuesta enriquecida dentro de una conversación del Inbox Unificado de Zernio
+ * (WhatsApp con foto + hasta 3 botones interactivos o solicitud nativa de ubicación, Telegram, IG, FB, SMS).
  */
 export async function replyZernioConversation(params: {
   conversationId: string;
   accountId: string;
-  message: string;
+  message?: string;
+  attachmentUrl?: string;
+  attachmentType?: "image" | "video" | "audio" | "file";
+  buttons?: ZernioReplyButton[];
+  interactive?: Record<string, unknown>;
 }) {
+  const body: Record<string, unknown> = {
+    accountId: params.accountId,
+  };
+  if (params.message) body.message = params.message;
+  if (params.attachmentUrl) {
+    body.attachmentUrl = params.attachmentUrl;
+    body.attachmentType = params.attachmentType || "image";
+  }
+  if (params.buttons && params.buttons.length > 0 && !params.interactive) {
+    body.buttons = params.buttons.slice(0, 3);
+  }
+  if (params.interactive) {
+    body.interactive = params.interactive;
+  }
+
   return zernioFetch<{ data?: { messageId?: string }; error?: string }>(
     `/inbox/conversations/${encodeURIComponent(params.conversationId)}/messages`,
     {
@@ -180,10 +215,7 @@ export async function replyZernioConversation(params: {
       headers: {
         "Idempotency-Key": crypto.randomUUID(),
       },
-      body: {
-        accountId: params.accountId,
-        message: params.message,
-      },
+      body,
     }
   );
 }

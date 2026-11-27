@@ -131,12 +131,17 @@ export function Navbar() {
         }`}
       >
         <div className="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-5 lg:px-10">
-          {/* Identidad institucional CRA */}
-          <Link href="/" className="flex items-center gap-3 text-white">
+          {/* Identidad institucional CRA + Emblema Manglar Vivo */}
+          <Link href="/" className="flex items-center gap-2.5 text-white">
+            <img
+              src="/images/pwa-icon-192.png"
+              alt="Logo Manglar Vivo"
+              className="h-9 w-9 rounded-lg border border-[#EDB512]/50 object-cover"
+            />
             <img
               src="/media/logo_cra_blanco.png"
               alt="CRA Atlántico"
-              className="h-9 w-auto object-contain"
+              className="hidden h-8 w-auto object-contain sm:block"
             />
             <span className="h-6 w-px bg-white/20" aria-hidden="true" />
             <span className="flex flex-col leading-none">
