@@ -1181,6 +1181,9 @@ function ReportarContent() {
                   <p className="mt-1 text-sm text-[#041A29]/70">
                     Conservamos el EXIF original (+25 pts) y verificamos automáticamente que la foto corresponda a un manglar real y no a un falso positivo.
                   </p>
+                  <p className="mt-1.5 text-xs font-bold text-[#9F2D15]">
+                    Seguridad primero: no te acerques a fuego, maquinaria, agua contaminada ni presuntos infractores; fotografía siempre a distancia segura.
+                  </p>
                 </div>
 
                 {datasetSamples.length > 0 && (

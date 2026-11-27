@@ -69,6 +69,41 @@ interface Props {
   totalSectorReports: number;
 }
 
+const ATLANTICO_FOUR_SPECIES = [
+  {
+    common: "Mangle rojo",
+    scientific: "Rhizophora mangle",
+    clue: "Raíces zancudas en arco sobre el agua salobre y propágulos alargados.",
+    habitat: "Bordes inundados y canales de intercambio hídrico.",
+  },
+  {
+    common: "Mangle negro / salado",
+    scientific: "Avicennia germinans",
+    clue: "Neumatóforos (pequeñas raíces verticales saliendo del lodo) y hojas con envés claro.",
+    habitat: "Alta tolerancia a salinidad y zonas intermareales.",
+  },
+  {
+    common: "Mangle blanco / amarillo",
+    scientific: "Laguncularia racemosa",
+    clue: "Hojas opuestas ovaladas con dos pequeñas glándulas cerca del pecíolo.",
+    habitat: "Zonas de transición y regeneración natural.",
+  },
+  {
+    common: "Mangle botón / zaragoza",
+    scientific: "Conocarpus erectus",
+    clue: "Frutos agrupados en forma de botón y hojas alternas.",
+    habitat: "Franjas más terrestres del borde del manglar.",
+  },
+];
+
+const IOT_VARIABLES_SPEC = [
+  { key: "conductividad_us_cm", label: "Conductividad", unit: "µS/cm", desc: "Concentración iónica" },
+  { key: "salinidad_psu", label: "Salinidad", unit: "PSU", desc: "Condición estuarina" },
+  { key: "temperatura_c", label: "Temperatura", unit: "°C", desc: "Régimen térmico" },
+  { key: "ph", label: "pH", unit: "pH", desc: "Balance ácido-base" },
+  { key: "nivel_agua_m", label: "Nivel de agua", unit: "m", desc: "Inundación / marea" },
+] as const;
+
 export function NfcStationExperience({
   station,
   sector,
@@ -87,6 +122,14 @@ export function NfcStationExperience({
     checkedChallenges: [],
   });
   const [justUnlockedStamp, setJustUnlockedStamp] = useState(false);
+  const [iotStation, setIotStation] = useState<{
+    nombre: string;
+    operador: string;
+    estado: "en_vivo" | "ultima_disponible" | "inactiva_lista_api";
+    ultimaLecturaAt: string | null;
+    notaRigurosa: string;
+    variables: Record<string, number | null>;
+  } | null>(null);
 
   const normalizedCode = station.shortCode.replace(/^0+/, "");
   const currentTrail =
@@ -96,7 +139,13 @@ export function NfcStationExperience({
     const { state, justUnlocked } = stampStationInPassport(station.shortCode);
     setPassport(state);
     setJustUnlockedStamp(justUnlocked);
-  }, [station.shortCode]);
+    fetch(`/api/telemetry?station_id=${encodeURIComponent(station.id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.station) setIotStation(d.station);
+      })
+      .catch(() => {});
+  }, [station.shortCode, station.id]);
 
   const handleToggleChallenge = (challengeId: string) => {
     setPassport(togglePassportChallenge(challengeId));
@@ -621,6 +670,88 @@ export function NfcStationExperience({
               <Camera className="h-4 w-4" />
               Tomar foto y enviar evidencia
             </Link>
+          </div>
+        </section>
+
+        {/* APARTADO CIENTÍFICO FISICOQUÍMICO (ESTACIONES IOT CRA / UNINORTE) */}
+        <section
+          data-nfc-in
+          className="overflow-hidden rounded-xl border border-white/14 bg-[#082438]"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/12 px-5 py-4">
+            <div>
+              <h2 className="font-display text-lg font-black text-white sm:text-xl">
+                Apartado científico · Estación fisicoquímica del punto
+              </h2>
+              <p className="mt-0.5 text-xs text-white/70">
+                {iotStation?.operador || "Red CRA · Monitoreo Costero"} — No necesitas saber de sensores: toma tu foto y la plataforma cruza el valor cuando la estación esté conectada.
+              </p>
+            </div>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-[11px] font-black ${
+                iotStation?.estado === "en_vivo"
+                  ? "bg-[#16794A]/30 text-[#86EFAC]"
+                  : "border border-[#EDB512]/45 bg-[#EDB512]/15 text-[#F8D86F]"
+              }`}
+            >
+              <Radio className="h-3.5 w-3.5" />
+              {iotStation?.estado === "en_vivo"
+                ? "LECTURA EN VIVO"
+                : "ESTACIÓN INACTIVA · LISTA PARA API"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 divide-y divide-white/10 sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+            {IOT_VARIABLES_SPEC.map((v) => {
+              const val = iotStation?.variables?.[v.key] ?? null;
+              return (
+                <div key={v.key} className="p-4">
+                  <span className="block text-[11px] font-bold text-white/60">{v.label}</span>
+                  <span className="mt-1 block font-display text-2xl font-black tabular-nums text-white">
+                    {val != null ? val : "—"}
+                    <span className="ml-1 font-mono text-xs font-bold text-[#F8D86F]">
+                      {v.unit}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-white/55">{v.desc}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="border-t border-white/10 bg-[#041A29]/60 px-5 py-3 text-[11px] text-white/70">
+            {iotStation?.notaRigurosa ||
+              "Sin lectura instrumental conectada en este instante. Los parámetros químicos nunca se inventan ni se estiman desde fotografías."}
+          </div>
+        </section>
+
+        {/* GUÍA DE BOLSILLO: LAS 4 ESPECIES DE MANGLE DEL ATLÁNTICO */}
+        <section data-nfc-in className="space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display text-xl font-black text-white sm:text-2xl">
+              Guía rápida: las 4 especies de mangle del Atlántico
+            </h2>
+            <span className="text-xs text-white/60">
+              Rasgos orientativos · No es obligatorio identificarlas para reportar
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {ATLANTICO_FOUR_SPECIES.map((sp) => (
+              <div
+                key={sp.scientific}
+                className="flex flex-col justify-between rounded-xl border border-white/12 bg-[#082438] p-4"
+              >
+                <div>
+                  <p className="font-display text-base font-black text-white">{sp.common}</p>
+                  <p className="font-mono text-[11px] italic text-[#F8D86F]">{sp.scientific}</p>
+                  <p className="mt-2.5 text-xs leading-relaxed text-white/80">{sp.clue}</p>
+                </div>
+                <p className="mt-3 border-t border-white/10 pt-2.5 text-[11px] text-white/60">
+                  {sp.habitat}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 

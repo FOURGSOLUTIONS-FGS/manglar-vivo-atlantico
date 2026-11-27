@@ -25,7 +25,7 @@ import { createBrowserSupabase } from "@/lib/supabase";
 import { classifyAlert } from "@/core/alerts/classifier";
 import { ALERT_ROUTING_MATRIX } from "@/core/alerts/routing";
 import type { AlertLevel } from "@/core/alerts/types";
-import type { AttentionStatus } from "@/lib/cra-domain";
+import { CRA_SECTORS, type AttentionStatus } from "@/lib/cra-domain";
 import { ReliabilityMeter } from "@/components/ReliabilityMeter";
 import {
   AdminAnalytics,
@@ -121,9 +121,24 @@ function AdminCommandContent() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get("code") || "";
 
-  const [tab, setTab] = useState<"panorama" | "bandeja" | "matriz" | "correos" | "arquitectura">(
-    initialCode ? "bandeja" : "panorama"
-  );
+  const [tab, setTab] = useState<
+    "panorama" | "bandeja" | "iot" | "matriz" | "correos" | "arquitectura"
+  >(initialCode ? "bandeja" : "panorama");
+  const [heroSectorIdx, setHeroSectorIdx] = useState(2);
+  const [iotStations, setIotStations] = useState<
+    Array<{
+      stationId: string;
+      sectorId: number;
+      nombre: string;
+      municipio: string;
+      operador: string;
+      fechaInstalacion: string;
+      estado: "en_vivo" | "ultima_disponible" | "inactiva_lista_api";
+      ultimaLecturaAt: string | null;
+      notaRigurosa: string;
+      variables: Record<string, number | null>;
+    }>
+  >([]);
   const [reports, setReports] = useState<AdminReportRow[]>([]);
   const [dispatches, setDispatches] = useState<DispatchRow[]>([]);
   const [channelStatus, setChannelStatus] = useState<ChannelStatusInfo | null>(null);
@@ -148,7 +163,11 @@ function AdminCommandContent() {
   } | null>(null);
 
   const fetchAll = async () => {
-    const [repRes, alertRes] = await Promise.all([fetch("/api/reports"), fetch("/api/alerts")]);
+    const [repRes, alertRes, iotRes] = await Promise.all([
+      fetch("/api/reports"),
+      fetch("/api/alerts"),
+      fetch("/api/telemetry"),
+    ]);
     if (repRes.ok) {
       const rJson = await repRes.json();
       setReports(rJson.reports || []);
@@ -160,6 +179,10 @@ function AdminCommandContent() {
       if (aJson.channelStatus?.defaultRecipient && !testEmail) {
         setTestEmail(aJson.channelStatus.defaultRecipient);
       }
+    }
+    if (iotRes.ok) {
+      const iJson = await iotRes.json();
+      setIotStations(iJson.stations || []);
     }
   };
 
@@ -372,33 +395,73 @@ function AdminCommandContent() {
     }
   };
 
+  const activeHeroSector = CRA_SECTORS[heroSectorIdx] ?? CRA_SECTORS[2];
+  const isDarkCanvas = tab === "panorama" || tab === "iot";
+
   return (
-    <div className="min-h-[calc(100vh-72px)] bg-[#EDF2F6]">
-      {/* Cabecera Centro de Mando */}
-      <section className="border-b border-white/12 bg-[#041A29] text-white">
-        <div className="mx-auto max-w-[1440px] px-5 py-7 lg:px-10">
+    <div
+      className={`min-h-[calc(100vh-72px)] transition-colors duration-300 ${
+        isDarkCanvas ? "bg-[#041A29] text-white" : "bg-[#EDF2F6]"
+      }`}
+    >
+      {/* ESCENARIO INMERSIVO SENTINEL-2 — CENTRO DE MANDO CRA (ESTÉTICA NFC) */}
+      <section className="relative overflow-hidden border-b border-white/12 bg-[#041A29] text-white">
+        <img
+          key={activeHeroSector.satImage}
+          src={activeHeroSector.satImage}
+          alt={`Vista satelital Sentinel-2 de ${activeHeroSector.nombre}`}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-35 transition-opacity duration-500"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#041A29]/80 via-[#041A29]/70 to-[#041A29]" />
+
+        {/* Esquinas ópticas satelitales */}
+        <span className="pointer-events-none absolute left-4 top-4 h-5 w-5 border-l-2 border-t-2 border-[#EDB512]/75" />
+        <span className="pointer-events-none absolute right-4 top-4 h-5 w-5 border-r-2 border-t-2 border-[#EDB512]/75" />
+
+        <div className="relative z-10 mx-auto max-w-[1440px] px-5 py-7 lg:px-10">
+          {/* Barra superior de telemetría viva + selector de sector satelital */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-[#16794A]/70 bg-[#041A29]/85 px-3 py-1.5 text-xs font-black text-[#86EFAC] backdrop-blur-md">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="live-pulse absolute inline-flex h-full w-full rounded-full bg-[#22C55E]" />
+                  <Radio className="relative h-2.5 w-2.5 text-[#22C55E]" />
+                </span>
+                {liveConnected ? "CENTRO DE MANDO CRA · EN VIVO" : "CONECTANDO REALTIME..."}
+              </span>
+              <span className="rounded-lg border border-white/15 bg-[#041A29]/80 px-3 py-1.5 font-mono text-[11px] font-bold text-[#F8D86F] backdrop-blur-md">
+                {channelStatus?.activeProvider === "smtp_hostinger"
+                  ? `SMTP REAL · ${channelStatus.fromAddress}`
+                  : "SANDBOX SMTP ACTIVO"}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap overflow-hidden rounded-lg border border-white/20 bg-[#041A29]/85 p-1 text-[11px] font-bold backdrop-blur-md">
+              {CRA_SECTORS.map((sec, idx) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setHeroSectorIdx(idx)}
+                  className={`min-h-[32px] rounded-md px-2.5 transition ${
+                    heroSectorIdx === idx
+                      ? "bg-[#EDB512] text-[#041A29]"
+                      : "text-white/75 hover:text-white"
+                  }`}
+                >
+                  0{sec.id} {sec.municipioPrincipal}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="font-display text-3xl font-black text-white sm:text-4xl">
-                Centro Admin de Alertas, Seguimiento y Despacho
+              <h1 className="font-display text-3xl font-black leading-[1.02] text-white sm:text-5xl">
+                CRM Ambiental · {activeHeroSector.nombre}
               </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-white/75">
-                <span className="inline-flex items-center gap-1.5 font-bold text-[#86EFAC]">
-                  <Radio className="h-3.5 w-3.5" />
-                  {liveConnected ? "Realtime conectado" : "Conectando Realtime..."}
-                </span>
-                <span className="text-white/30">·</span>
-                <span>
-                  Canal correo:{" "}
-                  <strong className="text-[#F8D86F]">
-                    {channelStatus?.activeProvider === "smtp_hostinger"
-                      ? `Hostinger SMTP (${channelStatus.fromAddress})`
-                      : channelStatus?.activeProvider === "resend_api"
-                      ? `Resend (${channelStatus.fromAddress})`
-                      : "Sandbox SMTP activo (listo para credenciales Hostinger)"}
-                  </strong>
-                </span>
-              </div>
+              <p className="mt-2 max-w-2xl text-xs text-white/80 sm:text-sm">
+                Monitoreo satelital Sentinel-2, alertas ciudadanas en tiempo real, validación con IA, despacho de correos urgentes y estaciones fisicoquímicas IoT.
+              </p>
             </div>
 
             {/* Controles de audio y notificaciones del navegador */}
@@ -406,10 +469,10 @@ function AdminCommandContent() {
               <button
                 type="button"
                 onClick={() => setSoundEnabled((v) => !v)}
-                className={`inline-flex min-h-[42px] items-center gap-2 rounded-lg border px-3.5 text-xs font-bold transition ${
+                className={`inline-flex min-h-[42px] items-center gap-2 rounded-lg border px-3.5 text-xs font-bold backdrop-blur-md transition ${
                   soundEnabled
-                    ? "border-[#EDB512]/50 bg-[#EDB512]/15 text-[#F8D86F]"
-                    : "border-white/20 bg-white/5 text-white/60"
+                    ? "border-[#EDB512]/50 bg-[#041A29]/80 text-[#F8D86F]"
+                    : "border-white/20 bg-[#041A29]/70 text-white/60"
                 }`}
               >
                 {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
@@ -419,27 +482,27 @@ function AdminCommandContent() {
               <button
                 type="button"
                 onClick={() => playAlertSound("urgent")}
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#C84023]/60 bg-[#C84023]/20 px-3.5 text-xs font-black text-[#FCA5A5] transition hover:bg-[#C84023] hover:text-white"
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#C84023]/60 bg-[#C84023]/25 px-3.5 text-xs font-black text-[#FCA5A5] backdrop-blur-md transition hover:bg-[#C84023] hover:text-white"
               >
                 <BellRing className="h-4 w-4" />
-                Probar sirena urgente
+                Probar sirena
               </button>
 
               <button
                 type="button"
                 onClick={handleEnableNotifications}
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#005F96] px-3.5 text-xs font-black text-white transition hover:bg-[#0074B8]"
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-[#005F96] px-3.5 text-xs font-black text-white transition hover:bg-[#EDB512] hover:text-[#041A29]"
               >
                 <Bell className="h-4 w-4 text-[#F8D86F]" />
                 {notifPerm === "granted"
                   ? "Notificaciones activas"
-                  : "Activar notificaciones"}
+                  : "Activar alertas"}
               </button>
             </div>
           </div>
 
-          {/* 5 KPIs directos sin cajas */}
-          <div className="mt-6 grid grid-cols-2 border-y border-white/12 sm:grid-cols-5">
+          {/* 5 KPIs directos sobre cristal marino */}
+          <div className="mt-6 grid grid-cols-2 rounded-xl border border-white/14 bg-[#041A29]/75 backdrop-blur-md sm:grid-cols-5">
             {[
               { label: "Nivel 1 · Urgentes", value: counts.urgente, tone: "text-[#FCA5A5]" },
               { label: "Nivel 2 · Prioritarias", value: counts.alta, tone: "text-[#F8D86F]" },
@@ -449,9 +512,9 @@ function AdminCommandContent() {
             ].map((k, idx) => (
               <div
                 key={k.label}
-                className={`py-4 sm:px-4 ${idx > 0 ? "sm:border-l sm:border-white/12" : "sm:pl-0"}`}
+                className={`p-4 ${idx > 0 ? "sm:border-l sm:border-white/12" : ""}`}
               >
-                <p className="text-xs text-white/60">{k.label}</p>
+                <p className="text-[11px] font-bold text-white/65">{k.label}</p>
                 <p className={`mt-1 font-display text-3xl font-black tabular-nums ${k.tone}`}>
                   {k.value}
                 </p>
@@ -464,9 +527,10 @@ function AdminCommandContent() {
             {[
               { id: "panorama", label: "Panorama e históricos" },
               { id: "bandeja", label: "Bandeja total y seguimiento" },
+              { id: "iot", label: "Estaciones IoT y ciencia" },
               { id: "matriz", label: "¿Quién recibe cada alerta?" },
-              { id: "correos", label: "Correos urgentes y subdominio" },
-              { id: "arquitectura", label: "Arquitectura SOLID y pruebas" },
+              { id: "correos", label: "Correos urgentes" },
+              { id: "arquitectura", label: "Arquitectura SOLID" },
             ].map((t) => (
               <button
                 key={t.id}
@@ -475,7 +539,7 @@ function AdminCommandContent() {
                 className={`min-h-[42px] rounded-lg px-4 text-xs font-black transition ${
                   tab === t.id
                     ? "bg-[#EDB512] text-[#041A29]"
-                    : "border border-white/20 bg-white/5 text-white/85 hover:bg-white/15"
+                    : "border border-white/20 bg-[#041A29]/75 text-white/85 backdrop-blur-sm hover:border-[#EDB512]"
                 }`}
               >
                 {t.label}
@@ -537,6 +601,95 @@ function AdminCommandContent() {
             dispatches={dispatches as unknown as AnalyticsDispatch[]}
             liveConnected={liveConnected}
           />
+        )}
+
+        {/* TAB IoT: APARTADO CIENTÍFICO Y ESTACIONES FISICOQUÍMICAS */}
+        {tab === "iot" && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-white/14 bg-[#082438] p-6">
+              <div>
+                <h2 className="font-display text-2xl font-black text-white">
+                  Red de Estaciones Fisicoquímicas (CRA · Uninorte)
+                </h2>
+                <p className="mt-1 max-w-3xl text-xs leading-relaxed text-white/75">
+                  Espacio científico dedicado para conectar los dataloggers de campo (Ecoparque Mallorquín, instalación 13/12/2024 y futuros nodos). Distingue estrictamente lecturas en vivo vs. estaciones inactivas — nunca estima química del agua desde fotografías ni inventa valores.
+                </p>
+              </div>
+              <span className="rounded-lg border border-[#EDB512]/40 bg-[#EDB512]/15 px-3 py-1.5 font-mono text-xs font-black text-[#F8D86F]">
+                POST /api/telemetry · JSON
+              </span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {iotStations.map((st) => (
+                <div
+                  key={st.stationId}
+                  className="overflow-hidden rounded-xl border border-white/14 bg-[#082438]"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2 border-b border-white/12 px-5 py-4">
+                    <div>
+                      <p className="font-display text-base font-black text-white">{st.nombre}</p>
+                      <p className="text-xs text-white/65">
+                        {st.municipio} · {st.operador}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-md px-2.5 py-1 font-mono text-[10px] font-black ${
+                        st.estado === "en_vivo"
+                          ? "bg-[#16794A]/35 text-[#86EFAC]"
+                          : "border border-[#EDB512]/40 bg-[#EDB512]/15 text-[#F8D86F]"
+                      }`}
+                    >
+                      {st.estado === "en_vivo" ? "EN VIVO" : "INACTIVA · LISTA API"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-5 divide-x divide-white/10">
+                    {[
+                      { k: "conductividad_us_cm", l: "Cond.", u: "µS/cm" },
+                      { k: "salinidad_psu", l: "Salin.", u: "PSU" },
+                      { k: "temperatura_c", l: "Temp.", u: "°C" },
+                      { k: "ph", l: "pH", u: "pH" },
+                      { k: "nivel_agua_m", l: "Nivel", u: "m" },
+                    ].map((v) => (
+                      <div key={v.k} className="p-3.5 text-center">
+                        <span className="block text-[10px] font-bold text-white/55">{v.l}</span>
+                        <span className="mt-1 block font-display text-lg font-black tabular-nums text-white">
+                          {st.variables?.[v.k] != null ? st.variables[v.k] : "—"}
+                        </span>
+                        <span className="block font-mono text-[10px] text-[#F8D86F]">{v.u}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="border-t border-white/10 bg-[#041A29]/60 px-5 py-3 text-[11px] leading-relaxed text-white/70">
+                    {st.notaRigurosa}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-white/14 bg-[#082438] p-6">
+              <h3 className="font-display text-lg font-black text-white">
+                Contrato de conexión inmediata para dataloggers externos
+              </h3>
+              <p className="mt-1 text-xs text-white/70">
+                Cuando se reactiven las estaciones del Ecoparque o Uninorte, basta enviar este paquete JSON autenticado para mostrar lecturas en vivo tanto en el CRM como en cada punto NFC (`/p/1`–`/p/4`).
+              </p>
+              <pre className="mt-3 overflow-x-auto rounded-lg border border-white/12 bg-[#041A29] p-4 font-mono text-xs text-[#86EFAC]">
+{`curl -X POST https://manglar.arpadura.com/api/telemetry \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "station_id": "mallorquin-sendero-1",
+    "conductividad_us_cm": 18450,
+    "salinidad_psu": 11.2,
+    "temperatura_c": 29.4,
+    "ph": 7.6,
+    "nivel_agua_m": 0.84
+  }'`}
+              </pre>
+            </div>
+          </div>
         )}
 
         {/* TAB 1: BANDEJA TOTAL Y SEGUIMIENTO */}

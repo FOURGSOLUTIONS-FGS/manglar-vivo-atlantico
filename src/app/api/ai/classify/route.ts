@@ -201,10 +201,12 @@ Si aparece un rostro humano reconocible en primer plano, pon "alerta_privacidad_
 PASO 3 — CLASIFICACIÓN EXACTA (SOLO SI es_evidencia_valida = true):
 Elige el "subtipo_sugerido" que REALMENTE coincide con la foto entre estos 12 IDs exactos:
 ${VALID_SUBTYPE_IDS.join(", ")}
-Reglas de precisión visual importantes:
+Reglas de precisión visual y rigor científico (CRA Atlántico):
 - Si se ven árboles caídos en la playa/orilla, raíces desenterradas por oleaje, talud o acantilado erosionado junto al mar -> elige "erosion_costera" (NO "verificacion_828ha").
+- NO confundas raíces zancudas normales del mangle rojo (Rhizophora mangle) ni neumatóforos del mangle negro (Avicennia germinans) con erosión o daño.
 - Usa "verificacion_828ha" únicamente cuando se observe manglar sano en pie con follaje verde y sin daño visible.
-- Usa "dosel_seco" cuando predominen árboles muertos en pie, troncos grises o follaje amarillo/seco.
+- Usa "dosel_seco" cuando predominen árboles muertos en pie, troncos grises o follaje amarillo/seco generalizado (no confundir el nombre común "mangle amarillo" con enfermedad).
+- NUNCA diagnostiques parámetros químicos (pH, salinidad, nitratos, toxicidad exacta) desde una foto: describe únicamente signos visibles (espuma, turbidez, película superficial, color del agua).
 Y mapea "tipo_evento_sugerido" a uno de:
 ["tala_relleno","cambio_hidrico","contaminacion_residuos","dano_fauna_especies","otro"]
 Evalúa "coincide_con_categoria": true si lo que se ve en la foto corresponde al factor elegido por el usuario, o false si la foto muestra claramente otro factor distinto.
