@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase";
 import { computeReliabilityScore } from "@/lib/reliability";
 import type { AttentionStatus, ValidationStatus } from "@/lib/cra-domain";
+import { createDefaultAlertDispatcher } from "@/core/alerts/dispatcher";
 
 export async function POST(request: Request) {
   try {
@@ -100,7 +101,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: upErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ report: updated, reliability: rel });
+    let alertDispatches: unknown[] = [];
+    if (nextValidationState === "alerta_oficial_cra") {
+      const exif = (updated.evidencia_exif as Record<string, unknown> | null) ?? null;
+      const dispatcher = createDefaultAlertDispatcher();
+      const out = await dispatcher
+        .evaluateAndDispatch({
+          report: {
+            id: updated.id,
+            trackingCode: updated.tracking_code,
+            tipoEvento: updated.tipo_evento,
+            subtipoEvento: typeof exif?.subtipo_evento === "string" ? exif.subtipo_evento : null,
+            zonaManglar: updated.zona_manglar,
+            municipio: updated.municipio,
+            sectorId: updated.sector_id,
+            accionPlan: updated.accion_plan,
+            enZonaPorRevisar: Boolean(updated.en_zona_por_revisar),
+            nivelPrioridad: updated.nivel_prioridad,
+            puntajeConfiabilidad: updated.puntaje_confiabilidad,
+            estadoValidacion: updated.estado_validacion,
+            attentionStatus: updated.attention_status,
+            descripcionCiudadana: updated.descripcion_ciudadana,
+            clasificacionTecnica: updated.clasificacion_tecnica,
+            evidenciaFotoUrl: updated.evidencia_foto_url,
+            latitud: Number(updated.latitud),
+            longitud: Number(updated.longitud),
+            isSimulatedGps: Boolean(updated.is_simulated_gps),
+            timestampCaptura: updated.timestamp_captura,
+          },
+          baseUrl: process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin,
+          forceSend: true,
+        })
+        .catch(() => null);
+      alertDispatches = out?.results ?? [];
+    }
+
+    return NextResponse.json({ report: updated, reliability: rel, alertDispatches });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Error registrando validación" },

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase";
 import { computeReliabilityScore } from "@/lib/reliability";
 import { EVENT_CATEGORIES } from "@/lib/cra-domain";
+import { createDefaultAlertDispatcher } from "@/core/alerts/dispatcher";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -168,7 +169,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ report: data, context: ctx, reliability }, { status: 201 });
+    // Motor SOLID de clasificación y despacho automático para alertas urgentes
+    const exifObj = (row.evidencia_exif as Record<string, unknown> | null) ?? null;
+    const dispatcher = createDefaultAlertDispatcher();
+    const alertOutcome = await dispatcher
+      .evaluateAndDispatch({
+        report: {
+          id: data.id,
+          trackingCode: data.tracking_code,
+          tipoEvento: data.tipo_evento,
+          subtipoEvento:
+            typeof exifObj?.subtipo_evento === "string" ? exifObj.subtipo_evento : null,
+          zonaManglar: data.zona_manglar,
+          municipio: data.municipio,
+          sectorId: data.sector_id,
+          accionPlan: data.accion_plan,
+          enZonaPorRevisar: Boolean(data.en_zona_por_revisar),
+          nivelPrioridad: data.nivel_prioridad,
+          puntajeConfiabilidad: data.puntaje_confiabilidad,
+          estadoValidacion: data.estado_validacion,
+          attentionStatus: data.attention_status,
+          descripcionCiudadana: data.descripcion_ciudadana,
+          clasificacionTecnica: data.clasificacion_tecnica,
+          evidenciaFotoUrl: data.evidencia_foto_url,
+          latitud: Number(data.latitud),
+          longitud: Number(data.longitud),
+          isSimulatedGps: Boolean(data.is_simulated_gps),
+          aiPhotoValid,
+          timestampCaptura: data.timestamp_captura,
+        },
+        baseUrl:
+          process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin,
+      })
+      .catch(() => null);
+
+    return NextResponse.json(
+      {
+        report: data,
+        context: ctx,
+        reliability,
+        alertClassification: alertOutcome?.classification ?? null,
+        alertDispatches: alertOutcome?.results ?? [],
+      },
+      { status: 201 }
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Error inesperado guardando reporte" },

@@ -44,6 +44,9 @@ import {
   uploadReportToServer,
   type PendingReportRecord,
 } from "@/lib/offline-db";
+import { classifyAlert } from "@/core/alerts/classifier";
+import type { AlertClassification } from "@/core/alerts/types";
+import { playAlertSound } from "@/lib/alert-audio";
 
 const CraMap = dynamic(() => import("@/components/CraMap"), { ssr: false });
 
@@ -133,6 +136,7 @@ function ReportarContent() {
     score: number;
     zona: string;
     factorLabel: string;
+    classification: AlertClassification;
   } | null>(null);
 
   const activeDomain =
@@ -453,33 +457,56 @@ function ReportarContent() {
         },
       };
 
+      const alertClassification = classifyAlert({
+        trackingCode,
+        tipoEvento: activeSubtype.eventType,
+        subtipoEvento: activeSubtype.id,
+        zonaManglar: record.payload.zona_manglar,
+        municipio: record.payload.municipio,
+        enZonaPorRevisar: record.payload.en_zona_por_revisar,
+        enDoselSeco2026: Boolean(spatialCtx?.inDoselSeco2026),
+        nivelPrioridad: priority,
+        puntajeConfiabilidad: reliabilityPreview.score,
+        estadoValidacion: "nuevo",
+        latitud: lat,
+        longitud: lon,
+        isSimulatedGps,
+        aiPhotoValid,
+      });
+
       if (!navigator.onLine) {
         await enqueueOfflineReport(record);
+        playAlertSound(alertClassification.soundProfile);
         setReceipt({
           trackingCode,
           offline: true,
           score: reliabilityPreview.score,
           zona: record.payload.zona_manglar,
           factorLabel: `${activeDomain.shortTitle} · ${activeSubtype.label}`,
+          classification: alertClassification,
         });
       } else {
         try {
           await uploadReportToServer(record);
+          playAlertSound(alertClassification.soundProfile);
           setReceipt({
             trackingCode,
             offline: false,
             score: reliabilityPreview.score,
             zona: record.payload.zona_manglar,
             factorLabel: `${activeDomain.shortTitle} · ${activeSubtype.label}`,
+            classification: alertClassification,
           });
         } catch {
           await enqueueOfflineReport(record);
+          playAlertSound(alertClassification.soundProfile);
           setReceipt({
             trackingCode,
             offline: true,
             score: reliabilityPreview.score,
             zona: record.payload.zona_manglar,
             factorLabel: `${activeDomain.shortTitle} · ${activeSubtype.label}`,
+            classification: alertClassification,
           });
         }
       }
@@ -530,20 +557,58 @@ function ReportarContent() {
             </div>
 
             <div className="space-y-6 p-7 sm:p-9">
+              {/* Explicación ultra clara de quién recibe la alerta (fácil de entender para niños y comunidad) */}
+              <div
+                className="rounded-xl border border-[#041A29]/12 bg-[#EDF2F6]/70 p-5"
+                style={{
+                  borderTopWidth: "4px",
+                  borderTopColor: receipt.classification.colorHex,
+                }}
+              >
+                <span
+                  className="inline-block rounded px-2.5 py-0.5 text-[11px] font-black text-white"
+                  style={{ backgroundColor: receipt.classification.colorHex }}
+                >
+                  {receipt.classification.badgeLabel} · Meta {receipt.classification.slaHours} h
+                </span>
+                <h2 className="mt-2.5 font-display text-xl font-black text-[#041A29]">
+                  {receipt.classification.kidFriendlyHeadline}
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-[#041A29]/80">
+                  {receipt.classification.kidFriendlyExplanation}
+                </p>
+
+                <div className="mt-4 border-t border-[#041A29]/10 pt-3">
+                  <p className="text-xs font-black text-[#005F96]">
+                    ¿Quién acaba de recibir tu aviso?
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {receipt.classification.recipients.map((rec) => (
+                      <span
+                        key={rec.id}
+                        className="rounded-md border border-[#041A29]/12 bg-white px-3 py-1.5 text-xs font-bold text-[#041A29]"
+                      >
+                        {rec.kidRoleLabel}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <ReliabilityMeter score={receipt.score} />
 
               <p className="text-sm leading-relaxed text-[#041A29]/75">
                 {receipt.offline
                   ? "Tu fotografía original (EXIF intacto), coordenadas y clasificación quedaron guardadas en IndexedDB. Subirán automáticamente apenas regrese la señal."
-                  : "El reporte ya aparece en la Sala Operativa CRA y en la consola de doble validación de mentores comunitarios y académicos."}
+                  : receipt.classification.nextStepSimple}
               </p>
 
               <div className="flex flex-wrap gap-3 pt-1">
                 <Link
-                  href="/cra"
+                  href="/admin"
                   className="inline-flex min-h-[48px] items-center gap-2 rounded-lg bg-[#005F96] px-5 text-sm font-black text-white transition hover:bg-[#041A29]"
                 >
-                  Ver en Sala Operativa CRA
+                  Ver en Centro Admin CRA
                   <ArrowRight className="h-4 w-4 text-[#F8D86F]" />
                 </Link>
                 <Link

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  BellRing,
   Camera,
   ChevronDown,
   Compass,
@@ -39,6 +40,12 @@ const COMMUNITY_LINKS = [
 ];
 
 const CRA_LINKS = [
+  {
+    href: "/admin",
+    label: "Centro Admin y Alertas",
+    desc: "Clasificación por nivel, seguimiento, sonidos y correos urgentes",
+    icon: BellRing,
+  },
   {
     href: "/cra",
     label: "Sala Operativa Satelital",
@@ -214,7 +221,7 @@ export function Navbar() {
                 aria-expanded={openMenu === "cra"}
                 onClick={() => setOpenMenu((prev) => (prev === "cra" ? null : "cra"))}
                 className={`inline-flex min-h-[44px] items-center gap-2 px-3.5 text-sm font-bold transition ${
-                  ["/cra", "/validar"].includes(pathname) || openMenu === "cra"
+                  ["/admin", "/cra", "/validar"].includes(pathname) || openMenu === "cra"
                     ? "text-[#F8D86F]"
                     : "text-white/85 hover:text-white"
                 }`}

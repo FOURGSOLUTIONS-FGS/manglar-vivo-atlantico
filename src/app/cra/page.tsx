@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  BellRing,
   CheckCircle2,
   Download,
   Layers,
@@ -134,6 +136,13 @@ export default function CraDashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-2.5">
+              <Link
+                href="/admin"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#005F96] px-4 text-xs font-black text-white transition hover:bg-[#0074B8]"
+              >
+                <BellRing className="h-4 w-4 text-[#F8D86F]" />
+                Centro Admin y Alertas
+              </Link>
               <a
                 href="/api/open-data?format=csv"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-[#EDB512] px-4 text-xs font-black text-[#041A29] transition hover:bg-[#F8D86F]"
