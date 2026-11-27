@@ -1,48 +1,35 @@
-# Manglar Vivo Atlántico — Ciencia Ciudadana CRA (Vit Arena)
+# Manglar Vivo Atlántico — Ciencia Ciudadana y Alerta Temprana CRA (Vit Arena)
 
-Plataforma **offline-first** de monitoreo ciudadano, validación territorial de doble nivel y gobernanza abierta para los manglares del departamento del Atlántico (**Corporación Autónoma Regional del Atlántico — CRA**).
+Plataforma **offline-first** de monitoreo ciudadano, validación territorial de doble nivel, despacho SOLID de alertas y gobernanza abierta para los manglares del departamento del Atlántico (**Corporación Autónoma Regional del Atlántico — CRA**).
 
-- **Demo en vivo (Producción):** https://manglar-vivo-atlantico.vercel.app
-- **Ficha técnica y diccionario de datos abiertos:** [FICHA_TECNICA.md](./FICHA_TECNICA.md)
+- **Producción:** https://manglar-vivo-atlantico.vercel.app (y subdominio https://manglar.arpadura.com)
+- **Ficha técnica y transparencia IA:** [FICHA_TECNICA.md](./FICHA_TECNICA.md)
+- **Guion de demo 7 minutos (Vit Arena):** [PITCH_VIT_ARENA.md](./PITCH_VIT_ARENA.md)
 
 ## Las 3 preguntas de gobernanza que resuelve
 
 1. **¿Dónde ocurre una amenaza o cambio ahora mismo, qué pasa y con qué prioridad coincide?**
-   - Captura ciudadana en 3 pasos (`/reportar`) con timestamp ISO-8601, GPS real (y modo demo explícitamente etiquetado `SIMULADO (DEMO)` para presentaciones en salón) y cruce geoespacial instantáneo —incluso en modo avión— contra los polígonos costeros del KMZ de la CRA, las **775 ha de manglar probable**, las **828 ha por revisar** y las **262 ha de dosel seco 2026**.
+   - Captura en 3 pasos (`/reportar`) con **4 dominios × 12 factores específicos**, **dictado por voz (`es-CO`)**, timestamp ISO-8601, GPS honesto (y modo demo marcado explícitamente `SIMULADO (DEMO)`) y cruce espacial instantáneo —incluso en modo avión— contra los **9,408 polígonos costeros** del KMZ CRA, las **775 ha de manglar probable**, las **828 ha por revisar** y las **262 ha de dosel seco 2026**.
 2. **¿Cómo se valida que el dato ciudadano es confiable antes de integrarlo a alertas oficiales?**
-   - Evidencia fotográfica original preservando **EXIF**, preclasificación multimodal con **OpenRouter (Gemini 2.5 Flash + respaldos Gemini 3.5 Flash Lite / Gemini 4 Hydrogen)**, contraste espacial en **PostGIS** con los **524 puntos *ground-truth*** oficiales de la CRA, **Semáforo de Confiabilidad (0–100 pts)** y consola de doble validación (`/validar`: Mentor Comunitario + Mentor Académico → Alerta Oficial CRA).
+   - Foto original preservando **EXIF**, **filtro visual IA anti-falsos positivos** (`google/gemini-2.5-flash` vía OpenRouter: 100 % rechazo a fotos de interiores/personas con penalización `0/25` y bloqueo de alertas rojas), **Semáforo de Confiabilidad (0–100 pts)**, contraste en **PostGIS** contra los **524 puntos *ground-truth*** de la CRA, doble validación (`/validar`) y **Centro Admin (`/admin`)** con 4 niveles de alerta, sonidos Web Audio, notificaciones en vivo y despacho real de correos HTML vía Hostinger SMTP.
 3. **¿Cómo sostener la participación de escuelas y turistas en el tiempo?**
-   - **Modo Escuelas (`/escuelas`):** retos escolares sobre las `828 ha por revisar`, tablero por institución y **cierre de ciclo** por código `MGL-2026-XXXX`.
-   - **Modo Turistas QR (`/turista`):** acceso sin fricción ni registro desde senderos eco-turísticos con ficha educativa de 30 s.
-   - **Actores y Formulación (`/participacion`):** evolución real de `manglarcra.netlify.app/maqueta` con registro obligatorio de actores, checklists oficiales (Res. 1263 de 2018), flujo de 6 estados y generador automático de borradores **MGA (DNP)** y **Nota Conceptual (`× 3.667 t CO₂e`)**.
+   - **Modo Escuelas (`/escuelas`):** adopción de las `828 ha por revisar`, bitácora PRAES y cierre de ciclo en 4 estaciones por código `MGL-2026-XXXX`.
+   - **Modo Turistas QR (`/turista`):** ficha educativa de 30 s + QR real escaneable y reporte < 1 minuto sin registro.
+   - **Participación y Formulación (`/participacion`):** registro obligatorio de actores (Ley 1581), 4 listas de chequeo (Res. 1263/2018), seguimiento de 6 estados y borradores prellenados **MGA (DNP)** y **CO₂e (`× 3.667`)**.
 
-## Stack y arquitectura
+## Verificación y pruebas
 
-- **Frontend & PWA:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Service Worker (`/sw.js`) + IndexedDB (`idb`) con sincronización automática al reconectar.
-- **Geoespacial:** Turf.js offline + Leaflet multicapa + PostgreSQL 17 / PostGIS en Supabase.
-- **Datos Abiertos (Ley 1581 de 2012):** Exportación en un clic desde `/cra` o vía `GET /api/open-data?format=csv` y `GET /api/open-data?format=geojson` con anonimización estricta.
-
-## Prueba en Modo Avión (Offline-First)
-
-1. Abre `/reportar` con conexión (el Service Worker precachea el App Shell y los GeoJSON costeros).
-2. Activa **Modo Avión** (o DevTools → Network → Offline) y recarga la página.
-3. Crea un reporte en 3 pasos con foto y GPS: el cruce espacial y el Semáforo funcionan sin red y el reporte queda en cola local (`IndexedDB`).
-4. Desactiva **Modo Avión**: la cola sube automáticamente y aparece en tiempo real en `/cra`.
+```bash
+npm install
+npm test                         # 5 pruebas unitarias SOLID (clasificador, anti-falsos, correo, DIP)
+node scripts/test_vision_dataset.mjs  # Benchmark de 14 fotos reales contra IA en producción
+npm run build                    # Compilación producción Next.js 16 + TypeScript
+```
 
 ## Desarrollo local
 
 ```bash
 cp .env.example .env.local
-# Completa tus credenciales de Supabase y OpenRouter en .env.local
-npm install
+# Configura Supabase, OpenRouter y Hostinger SMTP en .env.local
 npm run dev
-```
-
-Si deseas regenerar las capas GeoJSON desde el archivo KMZ oficial de la CRA:
-
-```bash
-python3 .agents/skills/geospatial-kmz-postgis/scripts/convert_cra_geodata.py \
-  --kmz "Prioridades de Conservación (1).kmz" \
-  --out-dir public/data/geo \
-  --tolerance 0.0003
 ```

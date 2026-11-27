@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import exifr from "exifr";
@@ -17,6 +17,8 @@ import {
   Database,
   LocateFixed,
   MapPin,
+  Mic,
+  MicOff,
   ShieldAlert,
   Sparkles,
   WifiOff,
@@ -118,6 +120,99 @@ function ReportarContent() {
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<Record<string, unknown> | null>(null);
+
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const w = window as unknown as {
+        SpeechRecognition?: unknown;
+        webkitSpeechRecognition?: unknown;
+      };
+      setVoiceSupported(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
+    }
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  const toggleVoiceDictation = () => {
+    if (voiceListening) {
+      recognitionRef.current?.stop();
+      setVoiceListening(false);
+      setVoiceStatus("Dictado detenido.");
+      return;
+    }
+
+    const w = window as unknown as {
+      SpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        continuous: boolean;
+        onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null;
+        onerror: ((ev: { error?: string }) => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        continuous: boolean;
+        onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }> }) => void) | null;
+        onerror: ((ev: { error?: string }) => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+    };
+
+    const SpeechRec = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setVoiceStatus("Tu navegador no soporta dictado por voz. Puedes escribir o usar los botones rápidos.");
+      return;
+    }
+
+    try {
+      const rec = new SpeechRec();
+      rec.lang = "es-CO";
+      rec.interimResults = false;
+      rec.continuous = false;
+      rec.onresult = (ev) => {
+        const parts: string[] = [];
+        for (let i = 0; i < ev.results.length; i += 1) {
+          const t = ev.results[i]?.[0]?.transcript?.trim();
+          if (t) parts.push(t);
+        }
+        const spoken = parts.join(" ").trim();
+        if (spoken) {
+          setDescripcion((prev) => (prev ? `${prev} · ${spoken}` : spoken));
+          setVoiceStatus(`Texto dictado agregado: "${spoken}"`);
+        }
+      };
+      rec.onerror = (ev) => {
+        setVoiceListening(false);
+        setVoiceStatus(
+          ev.error === "not-allowed"
+            ? "Permiso de micrófono denegado. Actívalo para dictar tu reporte."
+            : "No se escuchó voz clara. Intenta de nuevo."
+        );
+      };
+      rec.onend = () => {
+        setVoiceListening(false);
+      };
+      recognitionRef.current = rec;
+      setVoiceListening(true);
+      setVoiceStatus("Escuchando en español (Colombia)... cuéntanos qué ves en el manglar.");
+      rec.start();
+    } catch {
+      setVoiceListening(false);
+      setVoiceStatus("No se pudo iniciar el micrófono en este dispositivo.");
+    }
+  };
 
   const [lat, setLat] = useState<number | null>(null);
   const [lon, setLon] = useState<number | null>(null);
@@ -1136,12 +1231,47 @@ function ReportarContent() {
                   })}
                 </div>
 
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[#041A29]/70">
+                    Relato corto o dictado por voz (ideal con manos mojadas o para niños):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleVoiceDictation}
+                    className={`inline-flex min-h-[40px] items-center gap-2 rounded-lg px-3.5 text-xs font-black transition ${
+                      voiceListening
+                        ? "bg-[#C84023] text-white"
+                        : voiceSupported
+                        ? "bg-[#041A29] text-white hover:bg-[#005F96]"
+                        : "border border-[#041A29]/15 bg-[#EDF2F6] text-[#041A29]/60"
+                    }`}
+                  >
+                    {voiceListening ? (
+                      <>
+                        <MicOff className="h-4 w-4" />
+                        <span>Detener dictado...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="h-4 w-4 text-[#F8D86F]" />
+                        <span>Dictar con tu voz</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {voiceStatus && (
+                  <p className="mt-1.5 text-xs font-bold text-[#005F96]" role="status">
+                    {voiceStatus}
+                  </p>
+                )}
+
                 <textarea
                   rows={2}
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Añade una referencia útil del lugar (ej. frente al muelle, junto al caño principal)..."
-                  className="mt-3 w-full rounded-lg border border-[#041A29]/20 bg-[#EDF2F6]/50 px-4 py-3 text-sm text-[#041A29]"
+                  placeholder="Habla con el micrófono o escribe una referencia (ej. frente al muelle, junto al caño principal)..."
+                  className="mt-2 w-full rounded-lg border border-[#041A29]/20 bg-[#EDF2F6]/50 px-4 py-3 text-sm text-[#041A29]"
                 />
               </div>
 

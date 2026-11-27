@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -8,12 +9,15 @@ import {
   BellRing,
   CheckCircle2,
   ExternalLink,
+  Lock,
   Mail,
   Radio,
   Search,
   Send,
   ShieldAlert,
   ShieldCheck,
+  Unlock,
+  Users,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -97,20 +101,36 @@ function getStageIndex(r: AdminReportRow): number {
   return 0;
 }
 
-export default function AdminCommandPage() {
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function AdminCommandContent() {
+  const searchParams = useSearchParams();
+  const initialCode = searchParams.get("code") || "";
+
   const [tab, setTab] = useState<"bandeja" | "matriz" | "correos" | "arquitectura">("bandeja");
   const [reports, setReports] = useState<AdminReportRow[]>([]);
   const [dispatches, setDispatches] = useState<DispatchRow[]>([]);
   const [channelStatus, setChannelStatus] = useState<ChannelStatusInfo | null>(null);
   const [levelFilter, setLevelFilter] = useState<"all" | AlertLevel>("all");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialCode);
   const [liveConnected, setLiveConnected] = useState(false);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notifPerm, setNotifPerm] = useState<string>("default");
+  const [pinInput, setPinInput] = useState("");
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
 
   // Formulario de envío de correo real / prueba
-  const [testEmail, setTestEmail] = useState("");
+  const [testEmail, setTestEmail] = useState("four4gsolutions@gmail.com");
   const [testScenario, setTestScenario] = useState<"urgente" | "alta" | "verificacion">("urgente");
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendFeedback, setSendFeedback] = useState<{
@@ -137,8 +157,9 @@ export default function AdminCommandPage() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotifPerm(Notification.permission);
+    if (typeof window !== "undefined") {
+      if ("Notification" in window) setNotifPerm(Notification.permission);
+      if (sessionStorage.getItem("cra_admin_unlocked") === "1") setAdminUnlocked(true);
     }
     fetchAll();
 
@@ -213,7 +234,17 @@ export default function AdminCommandPage() {
         longitud: Number(r.longitud),
         aiPhotoValid: aiValid,
       });
-      return { report: r, classification, aiValid };
+      const nearbyCount = reports.filter(
+        (other) =>
+          other.id !== r.id &&
+          haversineMeters(
+            Number(r.latitud),
+            Number(r.longitud),
+            Number(other.latitud),
+            Number(other.longitud)
+          ) <= 500
+      ).length;
+      return { report: r, classification, aiValid, nearbyCount };
     });
   }, [reports]);
 
@@ -447,6 +478,50 @@ export default function AdminCommandPage() {
       </section>
 
       <div className="mx-auto max-w-[1440px] px-5 py-7 lg:px-10">
+        {/* Barra ligera de acceso institucional CRA (con 1 clic para jurado Vit Arena) */}
+        {!adminUnlocked && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#EDB512]/55 bg-[#FEF3C7] px-4 py-3 text-xs text-[#041A29]">
+            <div className="flex items-center gap-2 font-bold">
+              <Lock className="h-4 w-4 text-[#005F96]" />
+              <span>
+                Modo lectura institucional. Desbloquea acciones operativas y envío de correos (PIN CRA: <span className="font-mono font-black">2026</span>):
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="password"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="PIN (2026)"
+                className="min-h-[36px] w-28 rounded-lg border border-[#041A29]/20 bg-white px-2.5 font-mono text-xs font-bold"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (pinInput.trim() === "2026") {
+                    setAdminUnlocked(true);
+                    sessionStorage.setItem("cra_admin_unlocked", "1");
+                  }
+                }}
+                className="min-h-[36px] rounded-lg bg-[#041A29] px-3 font-black text-white"
+              >
+                Ingresar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminUnlocked(true);
+                  sessionStorage.setItem("cra_admin_unlocked", "1");
+                }}
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#005F96] px-3 font-black text-white"
+              >
+                <Unlock className="h-3.5 w-3.5 text-[#F8D86F]" />
+                Acceso Demo Jurado (1 clic)
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: BANDEJA TOTAL Y SEGUIMIENTO */}
         {tab === "bandeja" && (
           <div className="space-y-5">
@@ -487,12 +562,19 @@ export default function AdminCommandPage() {
             </div>
 
             <div className="space-y-4">
-              {filtered.map(({ report: r, classification: cls, aiValid }) => {
+              {filtered.map(({ report: r, classification: cls, aiValid, nearbyCount }) => {
                 const stageIdx = getStageIndex(r);
+                const highlighted =
+                  initialCode &&
+                  r.tracking_code.toUpperCase() === initialCode.trim().toUpperCase();
                 return (
                   <article
                     key={r.id}
-                    className="overflow-hidden rounded-xl border border-[#041A29]/12 bg-white"
+                    className={`overflow-hidden rounded-xl border bg-white ${
+                      highlighted
+                        ? "border-[#EDB512] ring-2 ring-[#EDB512]/50"
+                        : "border-[#041A29]/12"
+                    }`}
                   >
                     <div className="grid gap-5 p-5 lg:grid-cols-12">
                       {/* Foto y código */}
@@ -567,6 +649,12 @@ export default function AdminCommandPage() {
                               Evidencia ambiental apta
                             </span>
                           )}
+                          {nearbyCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded bg-[#005F96]/12 px-2 py-0.5 text-[#005F96]">
+                              <Users className="h-3 w-3" />
+                              Corroborado por {nearbyCount} reporte(s) en 500 m
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -577,31 +665,34 @@ export default function AdminCommandPage() {
                         <div className="flex flex-wrap gap-1.5 lg:justify-end">
                           <button
                             type="button"
+                            disabled={!adminUnlocked}
                             onClick={() =>
                               handleQuickAction(r.id, "alerta_oficial", "operativo_en_curso")
                             }
-                            className="min-h-[36px] rounded-lg bg-[#C84023] px-3 text-[11px] font-black text-white transition hover:bg-[#9F2D15]"
+                            className="min-h-[36px] rounded-lg bg-[#C84023] px-3 text-[11px] font-black text-white transition hover:bg-[#9F2D15] disabled:opacity-45"
                           >
                             Activar operativo
                           </button>
                           <button
                             type="button"
+                            disabled={!adminUnlocked}
                             onClick={() =>
                               handleQuickAction(r.id, "seguimiento_operativo", "atendido")
                             }
-                            className="min-h-[36px] rounded-lg bg-[#16794A] px-3 text-[11px] font-black text-white transition hover:bg-[#115E39]"
+                            className="min-h-[36px] rounded-lg bg-[#16794A] px-3 text-[11px] font-black text-white transition hover:bg-[#115E39] disabled:opacity-45"
                           >
                             Atendido
                           </button>
                           <button
                             type="button"
+                            disabled={!adminUnlocked}
                             onClick={() => {
                               setTab("correos");
                               if (testEmail.trim()) {
                                 handleSendEmail(undefined, r.id);
                               }
                             }}
-                            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-[#041A29]/20 bg-white px-2.5 text-[11px] font-bold text-[#041A29] hover:border-[#005F96]"
+                            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-[#041A29]/20 bg-white px-2.5 text-[11px] font-bold text-[#041A29] hover:border-[#005F96] disabled:opacity-45"
                           >
                             <Mail className="h-3.5 w-3.5 text-[#005F96]" />
                             Correo
@@ -804,11 +895,15 @@ export default function AdminCommandPage() {
 
               <button
                 type="submit"
-                disabled={sendingEmail}
-                className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-lg bg-[#C84023] px-5 text-sm font-black text-white transition hover:bg-[#9F2D15] disabled:opacity-60"
+                disabled={sendingEmail || !adminUnlocked}
+                className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-lg bg-[#C84023] px-5 text-sm font-black text-white transition hover:bg-[#9F2D15] disabled:opacity-50"
               >
                 <Send className="h-4 w-4" />
-                {sendingEmail ? "Enviando alerta..." : "Enviar correo de alerta ahora"}
+                {sendingEmail
+                  ? "Enviando alerta..."
+                  : !adminUnlocked
+                  ? "Desbloquea acceso arriba para enviar"
+                  : "Enviar correo de alerta ahora"}
               </button>
 
               {sendFeedback && (
@@ -987,5 +1082,19 @@ export default function AdminCommandPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminCommandPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl px-5 py-12 text-center text-sm font-bold text-[#005F96]">
+          Cargando Centro Admin CRA...
+        </div>
+      }
+    >
+      <AdminCommandContent />
+    </Suspense>
   );
 }

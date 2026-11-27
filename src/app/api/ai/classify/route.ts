@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ALL_SUBTYPES, EVENT_CATEGORIES, type EventTypeId, type SubtypeId } from "@/lib/cra-domain";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const VALID_SUBTYPE_IDS = ALL_SUBTYPES.map((s) => s.id);
 
@@ -113,6 +114,18 @@ async function callOpenRouterModel(
 
 export async function POST(request: Request) {
   try {
+    const rl = checkRateLimit({
+      key: `ai:${getClientIp(request)}`,
+      maxRequests: 45,
+      windowMs: 5 * 60 * 1000,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Límite temporal de análisis IA alcanzado. Reintenta en ${rl.retryAfterSec}s.` },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const {
       imageDataUrl,
@@ -172,6 +185,10 @@ Si aparece un rostro humano reconocible en primer plano, pon "alerta_privacidad_
 PASO 3 — CLASIFICACIÓN EXACTA (SOLO SI es_evidencia_valida = true):
 Elige el "subtipo_sugerido" que REALMENTE coincide con la foto entre estos 12 IDs exactos:
 ${VALID_SUBTYPE_IDS.join(", ")}
+Reglas de precisión visual importantes:
+- Si se ven árboles caídos en la playa/orilla, raíces desenterradas por oleaje, talud o acantilado erosionado junto al mar -> elige "erosion_costera" (NO "verificacion_828ha").
+- Usa "verificacion_828ha" únicamente cuando se observe manglar sano en pie con follaje verde y sin daño visible.
+- Usa "dosel_seco" cuando predominen árboles muertos en pie, troncos grises o follaje amarillo/seco.
 Y mapea "tipo_evento_sugerido" a uno de:
 ["tala_relleno","cambio_hidrico","contaminacion_residuos","dano_fauna_especies","otro"]
 Evalúa "coincide_con_categoria": true si lo que se ve en la foto corresponde al factor elegido por el usuario, o false si la foto muestra claramente otro factor distinto.
