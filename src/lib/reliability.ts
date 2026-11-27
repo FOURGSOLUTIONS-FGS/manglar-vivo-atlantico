@@ -14,6 +14,7 @@ export interface ReliabilityBreakdown {
 
 export function computeReliabilityScore(input: {
   hasPhoto: boolean;
+  aiPhotoValid?: boolean | null;
   precisionGpsM?: number | null;
   inCoastalZone: boolean;
   isSimulatedGps?: boolean;
@@ -23,7 +24,8 @@ export function computeReliabilityScore(input: {
   estadoValidacion?: ValidationStatus;
 }): ReliabilityBreakdown {
   const hasPhoto = Boolean(input.hasPhoto);
-  const pPhoto = hasPhoto ? 25 : 0;
+  const photoRejectedByAi = hasPhoto && input.aiPhotoValid === false;
+  const pPhoto = hasPhoto && !photoRejectedByAi ? 25 : 0;
 
   const precision = input.precisionGpsM ?? 999;
   const gpsPrecisionOk = !input.isSimulatedGps && precision <= 50;
@@ -49,20 +51,35 @@ export function computeReliabilityScore(input: {
   else if (st === "validado_academico" || st === "alerta_oficial_cra") pMentors = 20;
 
   const score = Math.min(100, pPhoto + pSpatial + pTime + pCorrob + pMentors);
-  const tier = score >= 75 ? "alta" : score >= 45 ? "media" : "baja";
-  const label =
-    tier === "alta"
-      ? "Confiabilidad Alta · Lista para alerta oficial CRA"
-      : tier === "media"
-      ? "Confiabilidad Media · Requiere aval de mentor"
-      : "Confiabilidad Baja · Evidencia incompleta o fuera de zona";
+  const tier = photoRejectedByAi
+    ? "baja"
+    : score >= 75
+    ? "alta"
+    : score >= 45
+    ? "media"
+    : "baja";
+
+  const label = photoRejectedByAi
+    ? "Evidencia observada por IA · Fotografía no corresponde a manglar"
+    : tier === "alta"
+    ? "Confiabilidad Alta · Lista para alerta oficial CRA"
+    : tier === "media"
+    ? "Confiabilidad Media · Requiere aval de mentor"
+    : "Confiabilidad Baja · Evidencia incompleta o fuera de zona";
 
   return {
     score,
     tier,
     label,
     factors: [
-      { label: "Evidencia fotográfica geolocalizada", points: pPhoto, maxPoints: 25, met: pPhoto > 0 },
+      {
+        label: photoRejectedByAi
+          ? "Foto rechazada por filtro visual IA (0/25)"
+          : "Evidencia fotográfica geolocalizada",
+        points: pPhoto,
+        maxPoints: 25,
+        met: pPhoto > 0,
+      },
       {
         label: input.isSimulatedGps
           ? "Ubicación en zona costera (Modo Demo)"

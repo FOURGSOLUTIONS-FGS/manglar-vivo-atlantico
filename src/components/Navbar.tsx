@@ -117,13 +117,13 @@ export function Navbar() {
     <>
       <header
         ref={navRef}
-        className={`fixed left-0 right-0 top-0 z-50 h-[72px] transition-colors duration-300 ${
+        className={`fixed left-0 right-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-colors duration-300 ${
           solidHeader
             ? "border-b border-white/12 bg-[#041A29]/95 backdrop-blur-md"
             : "border-b border-white/10 bg-gradient-to-b from-[#041A29]/80 to-transparent"
         }`}
       >
-        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between gap-4 px-5 lg:px-10">
+        <div className="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-5 lg:px-10">
           {/* Identidad institucional CRA */}
           <Link href="/" className="flex items-center gap-3 text-white">
             <img

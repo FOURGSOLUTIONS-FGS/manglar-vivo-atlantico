@@ -1,0 +1,119 @@
+[
+  {
+    "id": "tala_poda",
+    "domain": "cobertura_suelo",
+    "label": "Tala de manglar",
+    "src": "/dataset/tala_poda.jpg",
+    "bytes": 242494,
+    "sourceTitle": "ONLY STUMPS REMAIN AFTER CLEAR-CUTTING OPERATIONS ON THESE SLOPES - NARA - 542938.jpg",
+    "license": "Public domain"
+  },
+  {
+    "id": "relleno_obra",
+    "domain": "cobertura_suelo",
+    "label": "Relleno u obra en humedal",
+    "src": "/dataset/relleno_obra.jpg",
+    "bytes": 302897,
+    "sourceTitle": "US Navy 090717-N-6865V-001 An excavator removes hazardous waste from an old landfill during a restoration project at Naval Base Ventura County, Point Mugu.jpg",
+    "license": "Public domain"
+  },
+  {
+    "id": "quema_incendio",
+    "domain": "cobertura_suelo",
+    "label": "Quema o incendio en borde",
+    "src": "/dataset/quema_incendio.jpg",
+    "bytes": 214006,
+    "sourceTitle": "Prescribed burn of marsh grasses showing heavy plant growth with flames and smoke.jpg",
+    "license": "Public domain"
+  },
+  {
+    "id": "cano_taponado",
+    "domain": "agua_dosel",
+    "label": "Caño o canal taponado",
+    "src": "/dataset/cano_taponado.jpg",
+    "bytes": 130390,
+    "sourceTitle": "Stagnant Water by Odiham - geograph.org.uk - 671498.jpg",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "id": "dosel_seco",
+    "domain": "agua_dosel",
+    "label": "Mangle seco o amarillento",
+    "src": "/dataset/dosel_seco.jpg",
+    "bytes": 282627,
+    "sourceTitle": "Mangroves ^ Dead Trees - Flickr - treegrow.jpg",
+    "license": "CC BY 2.0"
+  },
+  {
+    "id": "erosion_costera",
+    "domain": "agua_dosel",
+    "label": "Erosión costera y raíces",
+    "src": "/dataset/erosion_costera.jpg",
+    "bytes": 145452,
+    "sourceTitle": "Coastal Erosion - Netley - geograph.org.uk - 836548.jpg",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "id": "residuos_solidos",
+    "domain": "contaminacion",
+    "label": "Basura y plásticos en manglar",
+    "src": "/dataset/residuos_solidos.jpg",
+    "bytes": 328563,
+    "sourceTitle": "River Starka.jpg",
+    "license": "CC BY 3.0"
+  },
+  {
+    "id": "vertimiento_agua",
+    "domain": "contaminacion",
+    "label": "Vertimiento de aguas sucias",
+    "src": "/dataset/vertimiento_agua.jpg",
+    "bytes": 349021,
+    "sourceTitle": "HERE THE DENVER METRO SEWAGE TREATMENT PLANT DISCHARGES INTO THE SOUTH PLATTE RIVER - NARA - 545312.jpg",
+    "license": "Public domain"
+  },
+  {
+    "id": "derrame_combustible",
+    "domain": "contaminacion",
+    "label": "Mancha de aceite o combustible",
+    "src": "/dataset/derrame_combustible.jpg",
+    "bytes": 192175,
+    "sourceTitle": "Oil sheen on pond.jpg",
+    "license": "CC BY-SA 3.0"
+  },
+  {
+    "id": "fauna_amenaza",
+    "domain": "fauna_verificacion",
+    "label": "Fauna afectada o redes",
+    "src": "/dataset/fauna_amenaza.jpg",
+    "bytes": 118486,
+    "sourceTitle": "Dead Fish, Lancaster Canal - geograph.org.uk - 1010001.jpg",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "id": "avistamiento_fauna",
+    "domain": "fauna_verificacion",
+    "label": "Avistamiento de ave costera",
+    "src": "/dataset/avistamiento_fauna.jpg",
+    "bytes": 240723,
+    "sourceTitle": "Ardea alba, Livingston, Izabal Department, Guatemala.jpg",
+    "license": "CC BY 2.0"
+  },
+  {
+    "id": "verificacion_828ha",
+    "domain": "fauna_verificacion",
+    "label": "Manglar sano (828 ha)",
+    "src": "/dataset/verificacion_828ha.jpg",
+    "bytes": 259226,
+    "sourceTitle": "Coastal mangrove forest near Durban's Umgeni River.jpg",
+    "license": "CC BY-SA 4.0"
+  },
+  {
+    "id": "control_oficina",
+    "domain": "invalida",
+    "label": "Prueba negativa: foto de interior",
+    "src": "/dataset/control_oficina.jpg",
+    "bytes": 73523,
+    "sourceTitle": "Desktop with laptop and calculator (Unsplash).jpg",
+    "license": "CC0"
+  }
+]

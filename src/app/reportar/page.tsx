@@ -14,10 +14,13 @@ import {
   CheckCircle2,
   ChevronDown,
   Copy,
+  Database,
   LocateFixed,
   MapPin,
+  ShieldAlert,
   Sparkles,
   WifiOff,
+  XCircle,
 } from "lucide-react";
 import { OfflineSyncBanner } from "@/components/OfflineSyncBanner";
 import { ReliabilityMeter } from "@/components/ReliabilityMeter";
@@ -43,6 +46,15 @@ import {
 } from "@/lib/offline-db";
 
 const CraMap = dynamic(() => import("@/components/CraMap"), { ssr: false });
+
+interface DatasetSample {
+  id: string;
+  domain: string;
+  label: string;
+  src: string;
+  sourceTitle?: string;
+  license?: string;
+}
 
 function compressForPreview(file: File): Promise<string> {
   return new Promise((resolve) => {
@@ -82,7 +94,7 @@ function ReportarContent() {
       const dom = FACTOR_DOMAINS.find((d) => d.id === paramDomain);
       if (dom) return dom.subtypes[0];
     }
-    return FACTOR_DOMAINS[1].subtypes[0]; // caño taponado por defecto
+    return FACTOR_DOMAINS[1].subtypes[0];
   }, [paramDomain, paramSubtype]);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -95,7 +107,11 @@ function ReportarContent() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFromDataset, setPhotoFromDataset] = useState<string | null>(null);
   const [exifInfo, setExifInfo] = useState<Record<string, unknown> | null>(null);
+
+  const [datasetSamples, setDatasetSamples] = useState<DatasetSample[]>([]);
+  const [showDatasetBank, setShowDatasetBank] = useState(false);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<Record<string, unknown> | null>(null);
@@ -123,6 +139,15 @@ function ReportarContent() {
     FACTOR_DOMAINS.find((d) => d.id === domainId) ?? FACTOR_DOMAINS[0];
   const activeSubtype =
     ALL_SUBTYPES.find((s) => s.id === subtypeId) ?? activeDomain.subtypes[0];
+
+  useEffect(() => {
+    fetch("/dataset/manifest.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => {
+        if (Array.isArray(list)) setDatasetSamples(list);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleDomainSelect = (nextDomainId: FactorDomainId) => {
     setDomainId(nextDomainId);
@@ -213,10 +238,42 @@ function ReportarContent() {
     setSpatialCtx(ctx);
   };
 
+  const runVisionAudit = async (preview: string, subtypeOverride?: typeof activeSubtype) => {
+    const sub = subtypeOverride ?? activeSubtype;
+    const dom = FACTOR_DOMAINS.find((d) => d.id === sub.domainId) ?? activeDomain;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const res = await fetch("/api/ai/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageDataUrl: preview,
+          tipoEvento: sub.eventType,
+          subtipoEvento: sub.id,
+          factorDominio: dom.title,
+          descripcion,
+          zonaManglar: spatialCtx?.sector.nombre,
+          enZonaPorRevisar: spatialCtx?.inPorRevisar828Ha,
+        }),
+      });
+      if (res.ok) setAiResult(await res.json());
+    } catch {
+      setAiResult({
+        mode: "offline_queued",
+        es_evidencia_valida: true,
+        clasificacion_tecnica: `${sub.technicalHint} (clasificación local offline)`,
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoFile(file);
+    setPhotoFromDataset(null);
 
     try {
       const parsed = await exifr.parse(file, [
@@ -243,31 +300,41 @@ function ReportarContent() {
 
     const preview = await compressForPreview(file);
     setPhotoPreview(preview);
+    await runVisionAudit(preview);
+  };
 
-    setAiLoading(true);
+  const handleSelectDatasetSample = async (sample: DatasetSample) => {
     try {
-      const res = await fetch("/api/ai/classify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageDataUrl: preview,
-          tipoEvento: activeSubtype.eventType,
-          subtipoEvento: activeSubtype.id,
-          factorDominio: activeDomain.title,
-          descripcion,
-          zonaManglar: spatialCtx?.sector.nombre,
-          enZonaPorRevisar: spatialCtx?.inPorRevisar828Ha,
-        }),
+      const res = await fetch(sample.src);
+      const blob = await res.blob();
+      const file = new File([blob], `${sample.id}.jpg`, { type: "image/jpeg" });
+      setPhotoFile(file);
+      setPhotoFromDataset(sample.label);
+      setExifInfo({
+        source: "dataset_prueba_wikimedia",
+        sampleId: sample.id,
+        originalBytes: blob.size,
+        hasGpsExif: false,
       });
-      if (res.ok) setAiResult(await res.json());
+      const preview = await compressForPreview(file);
+      setPhotoPreview(preview);
+      setShowDatasetBank(false);
+      await runVisionAudit(preview);
     } catch {
-      setAiResult({
-        mode: "offline_queued",
-        clasificacion_tecnica: `${activeSubtype.technicalHint} (clasificación local offline)`,
-      });
-    } finally {
-      setAiLoading(false);
+      // ignore
     }
+  };
+
+  const applyAiSuggestedSubtype = () => {
+    const suggestedId = aiResult?.subtipo_sugerido as SubtypeId | undefined;
+    if (!suggestedId) return;
+    const found = ALL_SUBTYPES.find((s) => s.id === suggestedId);
+    if (!found) return;
+    setDomainId(found.domainId);
+    setSubtypeId(found.id);
+    setAiResult((prev) =>
+      prev ? { ...prev, coincide_con_categoria: true } : prev
+    );
   };
 
   const toggleChip = (chip: string) => {
@@ -284,8 +351,20 @@ function ReportarContent() {
     );
   };
 
+  const aiPhotoValid =
+    aiResult && typeof aiResult.es_evidencia_valida === "boolean"
+      ? aiResult.es_evidencia_valida
+      : null;
+
+  const aiCategoryMismatch =
+    aiPhotoValid === true &&
+    aiResult?.coincide_con_categoria === false &&
+    typeof aiResult?.subtipo_sugerido === "string" &&
+    aiResult.subtipo_sugerido !== subtypeId;
+
   const reliabilityPreview = computeReliabilityScore({
     hasPhoto: Boolean(photoFile),
+    aiPhotoValid,
     precisionGpsM: precisionM,
     inCoastalZone: Boolean(spatialCtx?.inCoastalBbox),
     isSimulatedGps,
@@ -321,6 +400,7 @@ function ReportarContent() {
         factor_dominio_titulo: activeDomain.title,
         subtipo_evento: activeSubtype.id,
         subtipo_label: activeSubtype.label,
+        photo_from_dataset: photoFromDataset,
       };
 
       const record: PendingReportRecord = {
@@ -359,6 +439,7 @@ function ReportarContent() {
           evidencia_exif: enrichedExif,
           ai_classification: aiResult ?? {
             mode: "user_structured_taxonomy",
+            es_evidencia_valida: true,
             clasificacion_tecnica: activeSubtype.technicalHint,
             subtipo_evento: activeSubtype.id,
           },
@@ -416,7 +497,9 @@ function ReportarContent() {
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
                 <span className="inline-flex items-center gap-1.5 text-[#86EFAC]">
                   <CheckCircle2 className="h-4 w-4" />
-                  {receipt.offline ? "Guardado en cola local offline" : "Sincronizado en vivo con la CRA"}
+                  {receipt.offline
+                    ? "Guardado en cola local offline"
+                    : "Sincronizado en vivo con la CRA"}
                 </span>
                 <span className="font-mono text-[#F8D86F]">{receipt.factorLabel}</span>
               </div>
@@ -476,6 +559,7 @@ function ReportarContent() {
                     setStep(1);
                     setPhotoFile(null);
                     setPhotoPreview(null);
+                    setPhotoFromDataset(null);
                     setAiResult(null);
                     setDescripcion("");
                   }}
@@ -558,7 +642,6 @@ function ReportarContent() {
                 Elige primero el ámbito ambiental y luego el caso exacto para dirigir el reporte sin ambigüedades.
               </p>
 
-              {/* 4 Dominios simétricos (zero tarjeta huérfana) */}
               <div
                 role="tablist"
                 aria-label="Dominios ambientales"
@@ -601,7 +684,6 @@ function ReportarContent() {
               </div>
             </div>
 
-            {/* 3 Factores específicos del dominio elegido */}
             <div className="p-6 sm:p-8">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-display text-lg font-black text-[#041A29]">
@@ -625,9 +707,7 @@ function ReportarContent() {
                       type="button"
                       onClick={() => setSubtypeId(sub.id)}
                       className={`flex min-h-[76px] w-full items-start justify-between gap-4 p-4 text-left transition ${
-                        selected
-                          ? "bg-[#005F96]/[0.07]"
-                          : "bg-white hover:bg-[#EDF2F6]/55"
+                        selected ? "bg-[#005F96]/[0.07]" : "bg-white hover:bg-[#EDF2F6]/55"
                       }`}
                     >
                       <div className="flex items-start gap-3.5">
@@ -670,7 +750,6 @@ function ReportarContent() {
                 })}
               </div>
 
-              {/* Perfil del reportante */}
               <div className="mt-7 border-t border-[#041A29]/10 pt-6">
                 <p className="mb-3 text-sm font-bold text-[#041A29]">¿Quién realiza este reporte?</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -723,7 +802,7 @@ function ReportarContent() {
           </section>
         )}
 
-        {/* PASO 2: VISOR FOTOGRÁFICO EXIF + IA MULTIMODAL + ETIQUETAS DEL FACTOR */}
+        {/* PASO 2: VISOR FOTOGRÁFICO EXIF + FILTRO IA ANTI-ALUCINACIÓN + BANCO DE PRUEBA DATASET */}
         {step === 2 && (
           <section className="overflow-hidden rounded-xl border border-[#041A29]/12 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#041A29]/10 bg-[#EDF2F6]/65 px-6 py-3.5 text-xs">
@@ -746,19 +825,79 @@ function ReportarContent() {
             </div>
 
             <div className="space-y-6 p-6 sm:p-8">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="font-display text-2xl font-black text-[#041A29] sm:text-3xl">
-                    Evidencia fotográfica con EXIF intacto
+                    Evidencia fotográfica con filtro visual IA
                   </h1>
                   <p className="mt-1 text-sm text-[#041A29]/70">
-                    Subimos el archivo original sin alterar fecha ni cámara (+25 puntos en el Semáforo CRA).
+                    Conservamos el EXIF original (+25 pts) y verificamos automáticamente que la foto corresponda a un manglar real y no a un falso positivo.
                   </p>
                 </div>
+
+                {datasetSamples.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDatasetBank((v) => !v)}
+                    className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-[#041A29]/20 bg-[#EDF2F6] px-3.5 text-xs font-black text-[#041A29] transition hover:border-[#005F96]"
+                  >
+                    <Database className="h-4 w-4 text-[#005F96]" />
+                    <span>
+                      {showDatasetBank
+                        ? "Cerrar dataset de prueba"
+                        : `Probar con dataset (${datasetSamples.length} fotos)`}
+                    </span>
+                  </button>
+                )}
               </div>
 
+              {/* Banco interactivo de dataset real para pruebas en salón */}
+              {showDatasetBank && datasetSamples.length > 0 && (
+                <div className="rounded-xl border border-[#041A29]/15 bg-[#EDF2F6]/70 p-4">
+                  <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-xs font-black text-[#041A29]">
+                      Banco de fotografías reales de campo (incluye prueba negativa de interior para demostrar el filtro anti-falsos)
+                    </p>
+                    <span className="font-mono text-[11px] text-[#041A29]/60">
+                      Wikimedia Commons · Licencia abierta
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
+                    {datasetSamples.map((sample) => {
+                      const isNegative = sample.domain === "invalida";
+                      return (
+                        <button
+                          key={sample.id}
+                          type="button"
+                          onClick={() => handleSelectDatasetSample(sample)}
+                          className={`group overflow-hidden rounded-lg border bg-white text-left transition hover:border-[#005F96] ${
+                            isNegative ? "border-[#C84023]/45" : "border-[#041A29]/15"
+                          }`}
+                        >
+                          <div className="relative h-24 w-full overflow-hidden bg-[#041A29]">
+                            <img
+                              src={sample.src}
+                              alt={sample.label}
+                              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                            />
+                            {isNegative && (
+                              <span className="absolute left-1.5 top-1.5 rounded bg-[#C84023] px-1.5 py-0.5 font-mono text-[9px] font-black text-white">
+                                NO VÁLIDA
+                              </span>
+                            )}
+                          </div>
+                          <p className="line-clamp-2 p-2 text-[11px] font-bold leading-tight text-[#041A29]">
+                            {sample.label}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {!photoPreview ? (
-                <label className="relative flex min-h-[250px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-[#EDB512]/65 bg-[#041A29] p-8 text-center text-white transition hover:bg-[#082438]">
+                <label className="relative flex min-h-[240px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-[#EDB512]/65 bg-[#041A29] p-8 text-center text-white transition hover:bg-[#082438]">
                   <span className="pointer-events-none absolute left-4 top-4 h-5 w-5 border-l-2 border-t-2 border-[#EDB512]/80" />
                   <span className="pointer-events-none absolute right-4 top-4 h-5 w-5 border-r-2 border-t-2 border-[#EDB512]/80" />
                   <span className="pointer-events-none absolute bottom-4 left-4 h-5 w-5 border-b-2 border-l-2 border-[#EDB512]/80" />
@@ -771,7 +910,7 @@ function ReportarContent() {
                     Abrir cámara o elegir fotografía
                   </span>
                   <span className="mt-1.5 max-w-md text-xs text-white/70">
-                    La imagen se conserva íntegra para validez probatoria y una copia liviana se analiza con Gemini Vision.
+                    Si subes una foto ajena al manglar (interior, selfie o pantalla), el filtro visual IA la detecta y protege el Semáforo CRA.
                   </span>
                   <input
                     type="file"
@@ -788,6 +927,11 @@ function ReportarContent() {
                     alt="Evidencia capturada en campo"
                     className="h-72 w-full object-cover"
                   />
+                  {photoFromDataset && (
+                    <span className="absolute left-3 top-3 rounded bg-[#041A29]/85 px-2.5 py-1 font-mono text-[11px] font-bold text-[#F8D86F] backdrop-blur-sm">
+                      DATASET PRUEBA · {photoFromDataset}
+                    </span>
+                  )}
                   {aiLoading && (
                     <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[#005F96]/25">
                       <div className="animate-scan h-14 w-full bg-gradient-to-b from-transparent via-[#F8D86F]/75 to-transparent" />
@@ -807,39 +951,101 @@ function ReportarContent() {
                 </div>
               )}
 
+              {/* Resultado del filtro visual IA (rechazo honesto, alerta de desajuste o confirmación) */}
               {(aiLoading || aiResult) && (
-                <div className="rounded-lg border border-[#005F96]/25 bg-[#EDF2F6] p-4 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#005F96]">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Sparkles className="h-4 w-4" />
+                <div
+                  className={`rounded-xl border p-4 text-xs ${
+                    aiLoading
+                      ? "border-[#005F96]/25 bg-[#EDF2F6]"
+                      : aiPhotoValid === false
+                      ? "border-[#C84023]/45 bg-[#C84023]/10"
+                      : aiCategoryMismatch
+                      ? "border-[#C98206]/45 bg-[#EDB512]/15"
+                      : "border-[#16794A]/35 bg-[#16794A]/10"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 font-black">
+                    <span
+                      className={`inline-flex items-center gap-1.5 ${
+                        aiLoading
+                          ? "text-[#005F96]"
+                          : aiPhotoValid === false
+                          ? "text-[#9F2D15]"
+                          : aiCategoryMismatch
+                          ? "text-[#7C4F00]"
+                          : "text-[#115E39]"
+                      }`}
+                    >
+                      {aiLoading ? (
+                        <Sparkles className="h-4 w-4" />
+                      ) : aiPhotoValid === false ? (
+                        <XCircle className="h-4 w-4" />
+                      ) : aiCategoryMismatch ? (
+                        <ShieldAlert className="h-4 w-4" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+
                       {aiLoading
-                        ? "Analizando fotografía con IA multimodal..."
+                        ? "Auditando píxeles con IA multimodal..."
+                        : aiPhotoValid === false
+                        ? `Evidencia rechazada por filtro IA (0/25 pts) · ${String(aiResult?.model || "")}`
+                        : aiCategoryMismatch
+                        ? `Factor diferente detectado en la imagen · ${String(aiResult?.model || "")}`
                         : aiResult?.mode === "openrouter_live"
-                        ? `Asistencia IA en vivo · ${String(aiResult.model)}`
+                        ? `Evidencia ambiental confirmada (+25 pts) · ${String(aiResult.model)}`
                         : "Preclasificación local offline"}
                     </span>
-                    {Boolean(aiResult?.severidad) && !aiLoading && (
-                      <span className="rounded bg-white px-2 py-0.5 font-mono text-[11px] font-bold text-[#041A29]">
-                        Severidad: {String(aiResult?.severidad)}
-                      </span>
-                    )}
                   </div>
+
                   {aiResult && !aiLoading && (
-                    <>
-                      <p className="mt-2 text-sm font-black text-[#041A29]">
-                        {String(aiResult.clasificacion_tecnica || "")}
+                    <div className="mt-2 space-y-1.5 text-[#041A29]">
+                      {Boolean(aiResult.que_muestra_la_foto) && (
+                        <p className="text-xs text-[#041A29]/80">
+                          <strong>Qué ve la IA:</strong> {String(aiResult.que_muestra_la_foto)}
+                        </p>
+                      )}
+                      <p className="text-sm font-black">
+                        {aiPhotoValid === false
+                          ? String(
+                              aiResult.motivo_rechazo ||
+                                aiResult.clasificacion_tecnica ||
+                                "La imagen no corresponde a un manglar ni a una presión ambiental."
+                            )
+                          : String(aiResult.clasificacion_tecnica || "")}
                       </p>
-                      {Boolean(aiResult.resumen_tecnico) && (
-                        <p className="mt-1 text-xs text-[#041A29]/75">
+                      {Boolean(aiResult.resumen_tecnico) && aiPhotoValid !== false && (
+                        <p className="text-xs text-[#041A29]/75">
                           {String(aiResult.resumen_tecnico)}
                         </p>
                       )}
-                    </>
+
+                      {Boolean(aiResult.alerta_privacidad_rostros) && (
+                        <p className="mt-1 rounded bg-white/80 px-2.5 py-1.5 text-[11px] font-bold text-[#9F2D15]">
+                          Privacidad Ley 1581: se detectó un rostro humano en primer plano. Evita fotografiar personas y enfoca el ecosistema.
+                        </p>
+                      )}
+
+                      {aiCategoryMismatch && Boolean(aiResult.subtipo_sugerido_label) && (
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/85 p-2.5">
+                          <span>
+                            La imagen coincide mejor con{" "}
+                            <strong>{String(aiResult.subtipo_sugerido_label)}</strong>.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={applyAiSuggestedSubtype}
+                            className="min-h-[36px] rounded-md bg-[#041A29] px-3 text-xs font-black text-white hover:bg-[#005F96]"
+                          >
+                            Ajustar categoría
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Etiquetas rápidas específicas del factor elegido */}
               <div>
                 <p className="mb-2.5 text-sm font-bold text-[#041A29]">
                   Señales observadas en este factor (opcional, 1 toque):
@@ -879,7 +1085,13 @@ function ReportarContent() {
                 onClick={() => setStep(3)}
                 className="group flex min-h-[54px] w-full items-center justify-between rounded-lg bg-[#005F96] px-6 text-sm font-black text-white transition hover:bg-[#041A29]"
               >
-                <span>{photoPreview ? "Continuar a ubicación en mapa" : "Continuar sin fotografía"}</span>
+                <span>
+                  {aiPhotoValid === false
+                    ? "Continuar de todos modos (quedará marcado con 0/25 en foto)"
+                    : photoPreview
+                    ? "Continuar a ubicación en mapa"
+                    : "Continuar sin fotografía"}
+                </span>
                 <ArrowRight className="h-4 w-4 text-[#F8D86F] transition-transform group-hover:translate-x-1" />
               </button>
             </div>
@@ -950,7 +1162,6 @@ function ReportarContent() {
                 )}
               </div>
 
-              {/* 4 puntos satelitales de demostración en salón (con etiqueta explícita SIMULADO DEMO) */}
               <div>
                 <p className="mb-2.5 text-xs font-bold text-[#041A29]/75">
                   ¿En presentación en salón sin GPS exterior? Simula uno de los 4 sectores oficiales CRA (quedará marcado como{" "}
@@ -990,7 +1201,6 @@ function ReportarContent() {
                 </div>
               </div>
 
-              {/* Cruce espacial instantáneo + Semáforo de Confiabilidad */}
               {spatialCtx && (
                 <div className="space-y-4 rounded-xl border border-[#041A29]/12 bg-[#EDF2F6]/65 p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#041A29]/10 pb-3">

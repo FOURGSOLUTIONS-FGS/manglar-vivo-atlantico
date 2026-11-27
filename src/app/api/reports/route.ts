@@ -103,8 +103,15 @@ export async function POST(request: Request) {
     const nearby = Number(ctx?.nearby_reports_500m ?? 0);
     const cat = EVENT_CATEGORIES.find((c) => c.id === payload.tipo_evento);
 
+    const aiObj = (payload.ai_classification as Record<string, unknown> | undefined) ?? null;
+    const aiPhotoValid =
+      aiObj && typeof aiObj.es_evidencia_valida === "boolean"
+        ? aiObj.es_evidencia_valida
+        : null;
+
     const reliability = computeReliabilityScore({
       hasPhoto: Boolean(photoUrl),
+      aiPhotoValid,
       precisionGpsM: payload.precision_gps_m != null ? Number(payload.precision_gps_m) : null,
       inCoastalZone: true,
       isSimulatedGps: Boolean(payload.is_simulated_gps),

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { ALL_SUBTYPES, EVENT_CATEGORIES, type EventTypeId } from "@/lib/cra-domain";
+import { ALL_SUBTYPES, EVENT_CATEGORIES, type EventTypeId, type SubtypeId } from "@/lib/cra-domain";
+
+const VALID_SUBTYPE_IDS = ALL_SUBTYPES.map((s) => s.id);
 
 function heuristicClassify(input: {
   tipoEvento?: string;
@@ -31,9 +33,9 @@ function heuristicClassify(input: {
       tipoSugerido = "contaminacion_residuos";
       clasificacion = "Presión antrópica por residuos sólidos o vertimiento costero";
       severidad = "media";
-    } else if (/cangrejo|garza|ave|pez|fauna|trampa|red/.test(txt) || tipoSugerido === "dano_fauna_especies") {
+    } else if (/garza|ave|pez|fauna|trampa|red|cangrejo/.test(txt) || tipoSugerido === "dano_fauna_especies") {
       tipoSugerido = "dano_fauna_especies";
-      clasificacion = "Perturbación sobre fauna bentónica o avifauna asociada al manglar";
+      clasificacion = "Perturbación sobre fauna costera o avifauna asociada al manglar";
       severidad = "media";
     } else if (input.enZonaPorRevisar) {
       clasificacion = "Etiqueta ciudadana ground-truth en área de 828 ha por revisar";
@@ -44,12 +46,17 @@ function heuristicClassify(input: {
   return {
     mode: "heuristic_local_fallback",
     model: "reglas-cra-atlantico-v2",
+    es_evidencia_valida: true,
+    que_muestra_la_foto: "Sin inspección visual remota (modo offline/local).",
+    motivo_rechazo: null,
+    alerta_privacidad_rostros: false,
+    coincide_con_categoria: true,
     tipo_evento_sugerido: tipoSugerido,
-    subtipo_evento: subtypeMeta?.id || input.subtipoEvento || null,
+    subtipo_sugerido: (subtypeMeta?.id || input.subtipoEvento || null) as SubtypeId | null,
     clasificacion_tecnica: clasificacion,
     severidad,
-    confianza: 0.79,
-    resumen_tecnico: `Preclasificación automática para ${input.zonaManglar || "Atlántico"} (modo offline/fallback local).`,
+    confianza: 0.72,
+    resumen_tecnico: `Preclasificación local para ${input.zonaManglar || "Atlántico"} pendiente de revisión por mentor.`,
     recomendacion_cra:
       severidad === "alta"
         ? "Priorizar verificación de mentor comunitario y cruce con dosel seco / alerta temprana."
@@ -72,9 +79,16 @@ async function callOpenRouterModel(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 1200,
-      messages: [{ role: "user", content: userContent }],
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres un auditor técnico estricto de visión por computador de la CRA Atlántico (Colombia). Tu regla número 1 es NUNCA alucinar ni inventar manglares, tala o contaminación si la fotografía no los muestra realmente. Si la imagen es un interior, oficina, selfie, retrato, pantalla o escena ajena a ecosistemas costeros/ambientales, DEBES marcar es_evidencia_valida=false con honestidad total. Responde SIEMPRE un único objeto JSON válido sin markdown.",
+        },
+        { role: "user", content: userContent },
+      ],
     }),
   });
 
@@ -130,28 +144,64 @@ export async function POST(request: Request) {
       );
     }
 
+    const hasImage = Boolean(imageDataUrl && imageDataUrl.startsWith("data:image/"));
+
     const userContent: Array<Record<string, unknown>> = [
       {
         type: "text",
-        text: `Eres asistente técnico ambiental de la Corporación Autónoma Regional del Atlántico (CRA), Colombia.
-Analiza este reporte ciudadano de manglar y responde ÚNICAMENTE un JSON válido sin markdown con las claves:
-- "tipo_evento_sugerido": uno de ["tala_relleno","cambio_hidrico","contaminacion_residuos","dano_fauna_especies","otro"]
-- "clasificacion_tecnica": frase técnica concisa en español (máx 14 palabras)
-- "severidad": "alta" | "media" | "baja"
-- "confianza": número entre 0 y 1
-- "resumen_tecnico": explicación breve (máx 28 palabras) considerando manglar del Atlántico
-- "recomendacion_cra": acción sugerida para mentor/CRA (máx 20 palabras)
+        text: `Analiza la evidencia ${hasImage ? "FOTOGRÁFICA adjunta" : "textual"} para el sistema de monitoreo de manglares de la CRA Atlántico.
 
-Datos del ciudadano:
+PASO 1 — FILTRO ANTI-FALSOS POSITIVOS (CRÍTICO):
+${
+  hasImage
+    ? `Describe primero objetivamente QUÉ se ve realmente en los píxeles de la foto ("que_muestra_la_foto"), SIN dejarte influenciar por lo que seleccionó el ciudadano.
+Evalúa si la foto corresponde realmente a un entorno natural/costero/humedal/manglar/cuerpo de agua/fauna silvestre o amenaza ambiental real al aire libre (tala, relleno, obra en humedal, quema, agua estancada, árboles secos, erosión, basura en costa/agua, vertimiento, mancha de aceite, fauna).
+SI la foto muestra una persona/selfie/retrato en primer plano, una oficina, sala, puerta, computador/pantalla, mascota doméstica, comida, vehículo en calle urbana sin relación o cualquier escena NO ambiental/costera:
+- Pon "es_evidencia_valida": false
+- Pon "tipo_evento_sugerido": "invalida"
+- Pon "subtipo_sugerido": null
+- Pon "severidad": "nula"
+- Pon "coincide_con_categoria": false
+- Explica con claridad en "motivo_rechazo" y "clasificacion_tecnica" por qué no es evidencia de manglar.`
+    : `No se adjuntó imagen; clasifica únicamente con el texto indicando que falta evidencia fotográfica.`
+}
+
+PASO 2 — PRIVACIDAD LEY 1581:
+Si aparece un rostro humano reconocible en primer plano, pon "alerta_privacidad_rostros": true.
+
+PASO 3 — CLASIFICACIÓN EXACTA (SOLO SI es_evidencia_valida = true):
+Elige el "subtipo_sugerido" que REALMENTE coincide con la foto entre estos 12 IDs exactos:
+${VALID_SUBTYPE_IDS.join(", ")}
+Y mapea "tipo_evento_sugerido" a uno de:
+["tala_relleno","cambio_hidrico","contaminacion_residuos","dano_fauna_especies","otro"]
+Evalúa "coincide_con_categoria": true si lo que se ve en la foto corresponde al factor elegido por el usuario, o false si la foto muestra claramente otro factor distinto.
+
+Responde ÚNICAMENTE un JSON válido con exactamente estas claves:
+{
+  "es_evidencia_valida": boolean,
+  "que_muestra_la_foto": "descripción objetiva en español (máx 18 palabras)",
+  "motivo_rechazo": string | null,
+  "alerta_privacidad_rostros": boolean,
+  "coincide_con_categoria": boolean,
+  "tipo_evento_sugerido": "tala_relleno" | "cambio_hidrico" | "contaminacion_residuos" | "dano_fauna_especies" | "otro" | "invalida",
+  "subtipo_sugerido": "${VALID_SUBTYPE_IDS.join('" | "')}" | null,
+  "clasificacion_tecnica": "frase concisa en español (máx 15 palabras)",
+  "severidad": "alta" | "media" | "baja" | "nula",
+  "confianza": number (0 a 1),
+  "resumen_tecnico": "explicación clara (máx 28 palabras)",
+  "recomendacion_cra": "acción recomendada (máx 22 palabras)"
+}
+
+Contexto reportado por el usuario (SOLO referencia; la imagen manda):
 - Sector CRA: ${zonaManglar || "No especificado"}
-- En zona de 828 ha por revisar: ${enZonaPorRevisar ? "Sí" : "No"}
-- Dominio ambiental: ${factorDominio || "No especificado"}
-- Factor específico elegido: ${subtypeMeta ? `${subtypeMeta.label} (${subtypeMeta.id})` : tipoEvento || "otro"}
-- Descripción: ${descripcion || "(sin descripción adicional)"}`,
+- Zona 828 ha por revisar: ${enZonaPorRevisar ? "Sí" : "No"}
+- Dominio elegido: ${factorDominio || "No especificado"}
+- Factor elegido: ${subtypeMeta ? `${subtypeMeta.label} (${subtypeMeta.id})` : tipoEvento || "otro"}
+- Nota ciudadana: ${descripcion || "(sin nota adicional)"}`,
       },
     ];
 
-    if (imageDataUrl && imageDataUrl.startsWith("data:image/")) {
+    if (hasImage && imageDataUrl) {
       userContent.push({
         type: "image_url",
         image_url: { url: imageDataUrl },
@@ -166,11 +216,30 @@ Datos del ciudadano:
     for (const candidate of modelChain) {
       const attempt = await callOpenRouterModel(apiKey, candidate, userContent);
       if (attempt.ok) {
+        const p = attempt.parsed;
+        const isValid = p.es_evidencia_valida !== false && p.tipo_evento_sugerido !== "invalida";
+        const suggestedSub =
+          isValid && typeof p.subtipo_sugerido === "string" && VALID_SUBTYPE_IDS.includes(p.subtipo_sugerido as SubtypeId)
+            ? (p.subtipo_sugerido as SubtypeId)
+            : null;
+        const suggestedMeta = suggestedSub ? ALL_SUBTYPES.find((s) => s.id === suggestedSub) : null;
+
         return NextResponse.json({
           mode: "openrouter_live",
           model: candidate,
-          subtipo_evento: subtypeMeta?.id || subtipoEvento || null,
-          ...attempt.parsed,
+          ...p,
+          es_evidencia_valida: isValid,
+          subtipo_sugerido: suggestedSub,
+          subtipo_sugerido_label: suggestedMeta?.label ?? null,
+          dominio_sugerido: suggestedMeta?.domainId ?? null,
+          tipo_evento_sugerido: isValid
+            ? suggestedMeta?.eventType || p.tipo_evento_sugerido || tipoEvento || "otro"
+            : "invalida",
+          coincide_con_categoria: isValid
+            ? typeof p.coincide_con_categoria === "boolean"
+              ? p.coincide_con_categoria
+              : !suggestedSub || suggestedSub === subtipoEvento
+            : false,
         });
       }
       lastStatus = attempt.status;
