@@ -1,0 +1,142 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #041A29;
+      font-family: "Lato", sans-serif;
+      color: #F4F7FA;
+    }
+    .imp-glow {
+      position: absolute;
+      width: 960px;
+      height: 960px;
+      right: -120px;
+      bottom: -200px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(237, 181, 18, 0.22) 0%, rgba(4, 26, 41, 0) 70%);
+    }
+    .imp-stage {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      height: 100%;
+      padding: 80px 112px;
+      display: grid;
+      grid-template-columns: 0.78fr 1.22fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .imp-left {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+    .imp-pill {
+      align-self: flex-start;
+      padding: 12px 22px;
+      border-radius: 10px;
+      background: #16794A;
+      color: #FFFFFF;
+      font-family: "Space Mono", monospace;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .imp-h2 {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 64px;
+      line-height: 1.03;
+      color: #FFFFFF;
+    }
+    .imp-gold { color: #EDB512; }
+    .imp-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .imp-row {
+      background: #082438;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      padding: 20px 24px;
+    }
+    .imp-row-t {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 26px;
+      color: #F8D86F;
+    }
+    .imp-row-d {
+      margin-top: 6px;
+      font-size: 22px;
+      color: #DCE9F2;
+      font-weight: 700;
+    }
+    .imp-right {
+      border-radius: 20px;
+      border: 3px solid #EDB512;
+      background: #041A29;
+      overflow: hidden;
+      aspect-ratio: 16 / 10;
+      width: 100%;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    }
+    .imp-screen {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: top center;
+      display: block;
+    }
+  </style>
+
+  <div id="root" data-composition-id="impact" data-width="1920" data-height="1080">
+    <div id="imp-glow" class="imp-glow" data-layout-ignore></div>
+
+    <div class="imp-stage">
+      <div class="imp-left">
+        <div id="imp-pill" class="imp-pill">GOBIERNO DIGITAL · LEY 1581</div>
+        <h2 id="imp-h2" class="imp-h2">
+          DOBLE VALIDACIÓN Y <span class="imp-gold">DATOS ABIERTOS</span>
+        </h2>
+
+        <div class="imp-steps">
+          <div id="imp-r1" class="imp-row">
+            <div class="imp-row-t">1. Mentores locales + académicos</div>
+            <div class="imp-row-d">Confirman cada hallazgo antes de emitir alerta oficial CRA.</div>
+          </div>
+          <div id="imp-r2" class="imp-row">
+            <div class="imp-row-t">2. Exportación CSV y GeoJSON en 1 clic</div>
+            <div class="imp-row-d">100 % anonimizado, estándar abierto y listo para QGIS.</div>
+          </div>
+          <div id="imp-r3" class="imp-row">
+            <div class="imp-row-t">3. Escuelas PRAES y Actores CRA</div>
+            <div class="imp-row-d">Registro territorial y trazabilidad pública con cierre de ciclo.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="imp-right" class="imp-right">
+        <img
+          id="imp-img"
+          src="assets/screen_cra_desktop.png"
+          alt="Visor territorial CRA Atlántico"
+          class="imp-screen"
+        />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#imp-pill", { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 0.15);
+    tl.fromTo("#imp-h2", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.7, ease: "power4.out" }, 0.35);
+    tl.fromTo("#imp-r1", { opacity: 0, x: -36 }, { opacity: 1, x: 0, duration: 0.55, ease: "power3.out" }, 1.0);
+    tl.fromTo("#imp-r2", { opacity: 0, x: -36 }, { opacity: 1, x: 0, duration: 0.55, ease: "power3.out" }, 2.1);
+    tl.fromTo("#imp-r3", { opacity: 0, x: -36 }, { opacity: 1, x: 0, duration: 0.55, ease: "power3.out" }, 3.2);
+    tl.fromTo("#imp-right", { opacity: 0, x: 60, scale: 0.95 }, { opacity: 1, x: 0, scale: 1, duration: 0.8, ease: "power3.out" }, 0.6);
+    tl.fromTo("#imp-img", { scale: 1 }, { scale: 1.02, duration: 6.8, ease: "sine.inOut" }, 1.2);
+    tl.fromTo("#imp-glow", { opacity: 0.55, scale: 0.92 }, { opacity: 1, scale: 1.08, duration: 4, repeat: 1, yoyo: true, ease: "sine.inOut" }, 0);
+    window.__timelines["impact"] = tl;
+  </script>
+</template>

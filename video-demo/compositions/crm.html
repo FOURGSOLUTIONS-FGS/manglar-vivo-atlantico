@@ -1,0 +1,190 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #041A29;
+      font-family: "Lato", sans-serif;
+      color: #F4F7FA;
+    }
+    .crm-glow {
+      position: absolute;
+      width: 1100px;
+      height: 1100px;
+      left: 360px;
+      top: -220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(0, 95, 150, 0.36) 0%, rgba(4, 26, 41, 0) 68%);
+    }
+    .crm-stage {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      height: 100%;
+      padding: 72px 116px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .crm-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 32px;
+    }
+    .crm-h2 {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 62px;
+      line-height: 1.02;
+      color: #FFFFFF;
+    }
+    .crm-gold { color: #EDB512; }
+    .crm-live {
+      padding: 12px 22px;
+      border-radius: 10px;
+      background: #082438;
+      border: 2px solid #22C55E;
+      font-family: "Space Mono", monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: #86EFAC;
+      white-space: nowrap;
+    }
+    .crm-body {
+      display: grid;
+      grid-template-columns: 1.52fr 0.78fr;
+      gap: 32px;
+      align-items: center;
+      margin-top: 24px;
+    }
+    .crm-browser {
+      border-radius: 18px;
+      border: 3px solid #EDB512;
+      background: #041A29;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+      aspect-ratio: 16 / 10;
+      width: 100%;
+    }
+    .crm-screen {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: top center;
+      display: block;
+    }
+    .crm-mail-card {
+      border-radius: 18px;
+      border: 3px solid #C84023;
+      background: #082438;
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 680px;
+    }
+    .crm-mail-badge {
+      display: inline-block;
+      align-self: flex-start;
+      padding: 10px 18px;
+      border-radius: 8px;
+      background: #C84023;
+      color: #FFFFFF;
+      font-family: "Space Mono", monospace;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .crm-mail-title {
+      margin-top: 14px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 32px;
+      line-height: 1.08;
+      color: #FFFFFF;
+    }
+    .crm-mail-sub {
+      margin-top: 10px;
+      font-size: 21px;
+      line-height: 1.32;
+      color: #DCE9F2;
+      font-weight: 700;
+    }
+    .crm-minimap {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: contain;
+      background: #041A29;
+      border-radius: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      margin-top: 16px;
+      display: block;
+    }
+    .crm-bullets {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 22px;
+      font-weight: 700;
+      color: #F8D86F;
+    }
+  </style>
+
+  <div id="root" data-composition-id="crm" data-width="1920" data-height="1080">
+    <div id="crm-glow" class="crm-glow" data-layout-ignore></div>
+
+    <div class="crm-stage">
+      <div class="crm-head">
+        <h2 id="crm-h2" class="crm-h2">
+          CENTRO DE MANDO CRA Y <span class="crm-gold">DECISIONES HOY</span>
+        </h2>
+        <div id="crm-live" class="crm-live">REALTIME + SMTP EN VIVO</div>
+      </div>
+
+      <div class="crm-body">
+        <div id="crm-browser" class="crm-browser">
+          <img
+            id="crm-img"
+            src="assets/screen_admin_desktop.png"
+            alt="CRM Admin decisiones inteligentes CRA"
+            class="crm-screen"
+          />
+        </div>
+
+        <div id="crm-mail" class="crm-mail-card">
+          <div>
+            <div class="crm-mail-badge">ALERTA ROJA · SMTP REAL</div>
+            <div class="crm-mail-title">Correo urgente con minimapa satelital</div>
+            <div class="crm-mail-sub">
+              Despachado en segundos desde alertas-manglar@arpadura.com a la CRA y Policía Ambiental.
+            </div>
+            <img
+              id="crm-minimap"
+              src="assets/minimap_alerta.png"
+              alt="Minimapa satelital Juan de Acosta"
+              class="crm-minimap"
+            />
+          </div>
+
+          <div class="crm-bullets">
+            <div>1. Índice de Presión Operativa (0-100)</div>
+            <div>2. Simulador táctico de cuadrillas</div>
+            <div>3. Focos corroborados en radio 1.8 km</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#crm-h2", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.65, ease: "power4.out" }, 0.15);
+    tl.fromTo("#crm-live", { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.55, ease: "power3.out" }, 0.4);
+    tl.fromTo("#crm-browser", { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: "power3.out" }, 0.7);
+    tl.fromTo("#crm-img", { scale: 1 }, { scale: 1.02, duration: 8.5, ease: "sine.inOut" }, 1.6);
+    tl.fromTo("#crm-mail", { opacity: 0, x: 70 }, { opacity: 1, x: 0, duration: 0.85, ease: "power4.out" }, 2.8);
+    tl.fromTo("#crm-minimap", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.65, ease: "back.out(1.2)" }, 4.2);
+    tl.fromTo("#crm-glow", { opacity: 0.5, scale: 0.95 }, { opacity: 1, scale: 1.08, duration: 5.5, repeat: 1, yoyo: true, ease: "sine.inOut" }, 0);
+    window.__timelines["crm"] = tl;
+  </script>
+</template>

@@ -1,0 +1,187 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #041A29;
+      font-family: "Lato", sans-serif;
+      color: #F4F7FA;
+    }
+    .nfc-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.22;
+    }
+    .nfc-glow {
+      position: absolute;
+      width: 900px;
+      height: 900px;
+      left: -140px;
+      top: 90px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(0, 95, 150, 0.45) 0%, rgba(4, 26, 41, 0) 70%);
+    }
+    .nfc-wrap {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      height: 100%;
+      padding: 84px 128px;
+      display: grid;
+      grid-template-columns: 470px 1fr;
+      gap: 76px;
+      align-items: center;
+    }
+    .nfc-phone-frame {
+      width: 432px;
+      height: 896px;
+      border-radius: 38px;
+      border: 6px solid #EDB512;
+      background: #041A29;
+      overflow: hidden;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+      position: relative;
+    }
+    .nfc-phone-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: top center;
+      display: block;
+    }
+    .nfc-right {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .nfc-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      align-self: flex-start;
+      padding: 12px 24px;
+      border-radius: 10px;
+      background: #005F96;
+      border: 2px solid #F8D86F;
+      font-family: "Space Mono", monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+    .nfc-h2 {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 74px;
+      line-height: 1.01;
+      color: #FFFFFF;
+    }
+    .nfc-h2-gold {
+      color: #EDB512;
+    }
+    .nfc-lead {
+      font-size: 30px;
+      line-height: 1.35;
+      color: #DCE9F2;
+      font-weight: 700;
+    }
+    .nfc-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 6px;
+    }
+    .nfc-feat {
+      background: #082438;
+      border: 2px solid rgba(237, 181, 18, 0.45);
+      border-radius: 14px;
+      padding: 22px 24px;
+    }
+    .nfc-feat-title {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 26px;
+      color: #F8D86F;
+    }
+    .nfc-feat-desc {
+      margin-top: 8px;
+      font-size: 22px;
+      line-height: 1.32;
+      color: #DCE9F2;
+      font-weight: 700;
+    }
+    .nfc-url {
+      align-self: flex-start;
+      padding: 14px 26px;
+      border-radius: 10px;
+      background: #EDB512;
+      color: #041A29;
+      font-family: "Space Mono", monospace;
+      font-size: 24px;
+      font-weight: 700;
+    }
+  </style>
+
+  <div id="root" data-composition-id="nfc" data-width="1920" data-height="1080">
+    <img src="assets/z3_img.jpg" alt="" class="nfc-bg" data-layout-ignore />
+    <div id="nfc-glow" class="nfc-glow" data-layout-ignore></div>
+
+    <div class="nfc-wrap">
+      <div id="nfc-phone" class="nfc-phone-frame">
+        <img
+          id="nfc-screen"
+          src="assets/screen_nfc_mobile.png"
+          alt="Estación NFC real Juan de Acosta"
+          class="nfc-phone-img"
+        />
+      </div>
+
+      <div class="nfc-right">
+        <div id="nfc-pill" class="nfc-pill">ESTACIÓN NFC #03 · CERO REGISTRO</div>
+        <h2 id="nfc-h2" class="nfc-h2">
+          1 TOQUE NFC Y <span class="nfc-h2-gold">EXPLORAS EL MANGLAR</span>
+        </h2>
+        <p id="nfc-lead" class="nfc-lead">
+          El chip NFC o código QR precarga las coordenadas reales del sendero y convierte cada visita en ciencia ciudadana.
+        </p>
+
+        <div class="nfc-list">
+          <div id="nfc-f1" class="nfc-feat">
+            <div class="nfc-feat-title">Audioguía colombiana</div>
+            <div class="nfc-feat-desc">Voz natural MP3 en español disponible sin conexión.</div>
+          </div>
+          <div id="nfc-f2" class="nfc-feat">
+            <div class="nfc-feat-title">Pasaporte Costero</div>
+            <div class="nfc-feat-desc">Colecciona los 4 sellos NFC y retos del Atlántico.</div>
+          </div>
+          <div id="nfc-f3" class="nfc-feat">
+            <div class="nfc-feat-title">4 especies locales</div>
+            <div class="nfc-feat-desc">Rojo, negro, blanco y zaragoza explicados fácil.</div>
+          </div>
+          <div id="nfc-f4" class="nfc-feat">
+            <div class="nfc-feat-title">Apartado científico IoT</div>
+            <div class="nfc-feat-desc">Listo para enlazar pH, salinidad y nivel vía API.</div>
+          </div>
+        </div>
+
+        <div id="nfc-url" class="nfc-url">manglar.arpadura.com/p/3</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#nfc-phone", { opacity: 0, y: 70, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.85, ease: "power3.out" }, 0.15);
+    tl.fromTo("#nfc-pill", { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.55, ease: "power3.out" }, 0.35);
+    tl.fromTo("#nfc-h2", { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.7, ease: "power4.out" }, 0.6);
+    tl.fromTo("#nfc-lead", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 1.15);
+    tl.fromTo("#nfc-f1", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.2)" }, 2.2);
+    tl.fromTo("#nfc-f2", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.2)" }, 3.4);
+    tl.fromTo("#nfc-f3", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.2)" }, 4.8);
+    tl.fromTo("#nfc-f4", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.2)" }, 6.2);
+    tl.fromTo("#nfc-url", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.55, ease: "back.out(1.4)" }, 7.6);
+    tl.fromTo("#nfc-glow", { scale: 0.92, opacity: 0.65 }, { scale: 1.08, opacity: 1, duration: 6, repeat: 1, yoyo: true, ease: "sine.inOut" }, 0);
+    window.__timelines["nfc"] = tl;
+  </script>
+</template>

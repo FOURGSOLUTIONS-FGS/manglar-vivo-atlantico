@@ -1,0 +1,220 @@
+<!doctype html>
+<html
+  lang="es"
+  data-composition-variables='[
+    {"id":"brand","type":"string","label":"Marca","default":"MANGLAR VIVO ATLÁNTICO"},
+    {"id":"url","type":"string","label":"URL Pública","default":"manglar.arpadura.com"},
+    {"id":"accent","type":"color","label":"Dorado CRA","default":"#EDB512"},
+    {"id":"marine","type":"color","label":"Marino CRA","default":"#041A29"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --marine: #041A29;
+        --accent: #EDB512;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--marine);
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: var(--marine);
+      }
+      .scene-slot {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="64"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- ESCENA 1: HOOK TERRITORIAL + VIDEO AÉREO REAL (0.0 -> 11.4s) -->
+      <div
+        id="hook"
+        class="clip scene-slot"
+        data-composition-id="hook"
+        data-composition-src="compositions/hook.html"
+        data-start="0"
+        data-duration="11.4"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+        style="z-index: 1"
+      ></div>
+
+      <!-- ESCENA 2: ESTACIÓN NFC + PASAPORTE + AUDIOGUÍA + IOT (11.4 -> 23.8s) -->
+      <div
+        id="nfc"
+        class="clip scene-slot"
+        data-composition-id="nfc"
+        data-composition-src="compositions/nfc.html"
+        data-start="11.4"
+        data-duration="12.4"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+        style="z-index: 2"
+      ></div>
+
+      <!-- ESCENA 3: CAPTURA OFFLINE + FILTRO VISUAL IA 100% ANTI-FRAUDE (23.8 -> 37.6s) -->
+      <div
+        id="ai"
+        class="clip scene-slot"
+        data-composition-id="ai"
+        data-composition-src="compositions/ai.html"
+        data-start="23.8"
+        data-duration="13.8"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+        style="z-index: 3"
+      ></div>
+
+      <!-- ESCENA 4: CENTRO DE MANDO CRA + DECISIONES + CORREO SMTP MINIMAPA (37.6 -> 49.4s) -->
+      <div
+        id="crm"
+        class="clip scene-slot"
+        data-composition-id="crm"
+        data-composition-src="compositions/crm.html"
+        data-start="37.6"
+        data-duration="11.8"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+        style="z-index: 4"
+      ></div>
+
+      <!-- ESCENA 5: DOBLE VALIDACIÓN + GOBIERNO DIGITAL CSV/GEOJSON (49.4 -> 57.8s) -->
+      <div
+        id="impact"
+        class="clip scene-slot"
+        data-composition-id="impact"
+        data-composition-src="compositions/impact.html"
+        data-start="49.4"
+        data-duration="8.4"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+        style="z-index: 5"
+      ></div>
+
+      <!-- ESCENA 6: END CARD OFICIAL CRA ATLÁNTICO (57.8 -> 64.0s) -->
+      <div
+        id="outro"
+        class="clip scene-slot"
+        data-composition-id="outro"
+        data-composition-src="compositions/outro.html"
+        data-start="57.8"
+        data-duration="6.2"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+        style="z-index: 6"
+      ></div>
+
+      <!-- CAMA MUSICAL AMBIENTAL SUAVE -->
+      <audio
+        id="audio-bgm"
+        class="clip"
+        src="assets/audio/bgm_pad.mp3"
+        data-start="0"
+        data-duration="64"
+        data-track-index="2"
+        data-volume="0.55"
+        data-fade-in="1.2"
+        data-fade-out="2.5"
+      ></audio>
+
+      <!-- LOCUCIÓN EN VOZ COLOMBIANA SINCRONIZADA POR ESCENA -->
+      <audio
+        id="vo-1"
+        class="clip"
+        src="assets/audio/vo_1_hook.mp3"
+        data-start="0.3"
+        data-duration="10.85"
+        data-track-index="3"
+        data-volume="1"
+      ></audio>
+      <audio
+        id="vo-2"
+        class="clip"
+        src="assets/audio/vo_2_nfc.mp3"
+        data-start="11.7"
+        data-duration="11.82"
+        data-track-index="3"
+        data-volume="1"
+      ></audio>
+      <audio
+        id="vo-3"
+        class="clip"
+        src="assets/audio/vo_3_ai.mp3"
+        data-start="24.1"
+        data-duration="13.15"
+        data-track-index="3"
+        data-volume="1"
+      ></audio>
+      <audio
+        id="vo-4"
+        class="clip"
+        src="assets/audio/vo_4_crm.mp3"
+        data-start="37.9"
+        data-duration="11.18"
+        data-track-index="3"
+        data-volume="1"
+      ></audio>
+      <audio
+        id="vo-5"
+        class="clip"
+        src="assets/audio/vo_5_impact.mp3"
+        data-start="49.7"
+        data-duration="7.82"
+        data-track-index="3"
+        data-volume="1"
+      ></audio>
+      <audio
+        id="vo-6"
+        class="clip"
+        src="assets/audio/vo_6_outro.mp3"
+        data-start="58.1"
+        data-duration="5.4"
+        data-track-index="3"
+        data-volume="1"
+      ></audio>
+    </div>
+
+    <script>
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

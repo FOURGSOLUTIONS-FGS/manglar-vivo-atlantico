@@ -420,8 +420,18 @@ export function AdminAnalytics({
       color: "#EDB512",
     },
     {
+      label: "WhatsApp / Zernio",
+      count: current.filter((x) => (x.r.qr_station_id || "").startsWith("zernio:")).length,
+      color: "#22C55E",
+    },
+    {
       label: "Código QR",
-      count: current.filter((x) => x.r.qr_station_id && !x.r.qr_station_id.startsWith("nfc:")).length,
+      count: current.filter(
+        (x) =>
+          x.r.qr_station_id &&
+          !x.r.qr_station_id.startsWith("nfc:") &&
+          !x.r.qr_station_id.startsWith("zernio:")
+      ).length,
       color: "#2B8CC4",
     },
     { label: "App web / PWA", count: current.filter((x) => !x.r.qr_station_id).length, color: "#16794A" },

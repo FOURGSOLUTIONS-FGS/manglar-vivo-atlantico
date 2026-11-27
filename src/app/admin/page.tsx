@@ -32,6 +32,7 @@ import {
   type AnalyticsDispatch,
   type AnalyticsReport,
 } from "@/components/AdminAnalytics";
+import { AdminZernioChannels } from "@/components/AdminZernioChannels";
 import {
   playAlertSound,
   requestBrowserNotificationPermission,
@@ -121,9 +122,16 @@ function AdminCommandContent() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get("code") || "";
 
+  const initialTab = searchParams.get("tab");
   const [tab, setTab] = useState<
-    "panorama" | "bandeja" | "iot" | "matriz" | "correos" | "arquitectura"
-  >(initialCode ? "bandeja" : "panorama");
+    "panorama" | "bandeja" | "canales" | "iot" | "matriz" | "correos" | "arquitectura"
+  >(
+    initialTab === "canales"
+      ? "canales"
+      : initialCode
+      ? "bandeja"
+      : "panorama"
+  );
   const [heroSectorIdx, setHeroSectorIdx] = useState(2);
   const [iotStations, setIotStations] = useState<
     Array<{
@@ -396,7 +404,7 @@ function AdminCommandContent() {
   };
 
   const activeHeroSector = CRA_SECTORS[heroSectorIdx] ?? CRA_SECTORS[2];
-  const isDarkCanvas = tab === "panorama" || tab === "iot";
+  const isDarkCanvas = tab === "panorama" || tab === "iot" || tab === "canales";
 
   return (
     <div
@@ -527,6 +535,7 @@ function AdminCommandContent() {
             {[
               { id: "panorama", label: "Panorama e históricos" },
               { id: "bandeja", label: "Bandeja total y seguimiento" },
+              { id: "canales", label: "Canales Zernio (WA/TG/IG)" },
               { id: "iot", label: "Estaciones IoT y ciencia" },
               { id: "matriz", label: "¿Quién recibe cada alerta?" },
               { id: "correos", label: "Correos urgentes" },
@@ -611,6 +620,9 @@ function AdminCommandContent() {
             }}
           />
         )}
+
+        {/* TAB CANALES OMNICANAL ZERNIO */}
+        {tab === "canales" && <AdminZernioChannels />}
 
         {/* TAB IoT: APARTADO CIENTÍFICO Y ESTACIONES FISICOQUÍMICAS */}
         {tab === "iot" && (

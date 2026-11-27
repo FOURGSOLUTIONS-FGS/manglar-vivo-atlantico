@@ -50,3 +50,8 @@ public/data/geo/coastal_priorities.geojson
 next-env.d.ts
 .env.local
 !.env.example
+
+# HyperFrames build cache & rendered MP4 video
+video-demo/.hyperframes/
+video-demo/node_modules/
+docs/*.mp4

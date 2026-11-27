@@ -1,0 +1,205 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background: #041A29;
+      font-family: "Lato", sans-serif;
+      color: #F4F7FA;
+    }
+    .ai-glow {
+      position: absolute;
+      width: 1000px;
+      height: 1000px;
+      right: -200px;
+      top: -120px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(22, 121, 74, 0.25) 0%, rgba(4, 26, 41, 0) 68%);
+    }
+    .ai-stage {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      height: 100%;
+      padding: 84px 128px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .ai-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 40px;
+    }
+    .ai-h2 {
+      font-family: "Archivo Black", sans-serif;
+      font-size: 68px;
+      line-height: 1.02;
+      color: #FFFFFF;
+      max-width: 1180px;
+    }
+    .ai-gold { color: #EDB512; }
+    .ai-badge {
+      padding: 14px 24px;
+      border-radius: 12px;
+      background: #082438;
+      border: 2px solid #86EFAC;
+      font-family: "Space Mono", monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #86EFAC;
+      white-space: nowrap;
+    }
+    .ai-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-top: 28px;
+    }
+    .ai-card {
+      background: #082438;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 3px solid rgba(255, 255, 255, 0.16);
+    }
+    .ai-card-ok { border-color: #22C55E; }
+    .ai-card-bad { border-color: #EF4444; }
+    .ai-photo-box {
+      position: relative;
+      height: 360px;
+      overflow: hidden;
+      background: #041A29;
+    }
+    .ai-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .ai-scanbar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 10px;
+      background: #EDB512;
+      box-shadow: 0 0 28px #EDB512;
+    }
+    .ai-verdict {
+      padding: 26px 30px;
+    }
+    .ai-chip-ok {
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 8px;
+      background: #16794A;
+      color: #FFFFFF;
+      font-family: "Space Mono", monospace;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .ai-chip-bad {
+      display: inline-block;
+      padding: 10px 20px;
+      border-radius: 8px;
+      background: #C84023;
+      color: #FFFFFF;
+      font-family: "Space Mono", monospace;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .ai-v-title {
+      margin-top: 14px;
+      font-family: "Archivo Black", sans-serif;
+      font-size: 30px;
+      color: #FFFFFF;
+    }
+    .ai-v-desc {
+      margin-top: 8px;
+      font-size: 23px;
+      line-height: 1.32;
+      color: #DCE9F2;
+      font-weight: 700;
+    }
+    .ai-footer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .ai-pill-bar {
+      background: #082438;
+      border: 2px solid rgba(237, 181, 18, 0.45);
+      border-radius: 14px;
+      padding: 18px 24px;
+      font-size: 24px;
+      font-weight: 900;
+      color: #F8D86F;
+      text-align: center;
+    }
+  </style>
+
+  <div id="root" data-composition-id="ai" data-width="1920" data-height="1080">
+    <div id="ai-glow" class="ai-glow" data-layout-ignore></div>
+
+    <div class="ai-stage">
+      <div class="ai-head">
+        <h2 id="ai-h2" class="ai-h2">
+          OFFLINE, POR VOZ Y CON <span class="ai-gold">FILTRO IA ANTI-FALSOS</span>
+        </h2>
+        <div id="ai-badge" class="ai-badge">BENCHMARK 15/15 · 100 %</div>
+      </div>
+
+      <div class="ai-grid">
+        <div id="ai-card-left" class="ai-card ai-card-ok">
+          <div class="ai-photo-box">
+            <img src="assets/quema_incendio.jpg" alt="Quema real en humedal" class="ai-photo" />
+            <div id="ai-scan-1" class="ai-scanbar" data-layout-ignore></div>
+          </div>
+          <div class="ai-verdict">
+            <div id="ai-tag-ok" class="ai-chip-ok">EVIDENCIA CONFIRMADA · 95/100</div>
+            <div class="ai-v-title">Quema activa en borde de manglar</div>
+            <div class="ai-v-desc">EXIF intacto, GPS honesto y alerta roja automática a la CRA.</div>
+          </div>
+        </div>
+
+        <div id="ai-card-right" class="ai-card ai-card-bad">
+          <div class="ai-photo-box">
+            <img src="assets/control_pantalla_pc.jpg" alt="Foto de pantalla de portátil" class="ai-photo" />
+            <div id="ai-scan-2" class="ai-scanbar" data-layout-ignore></div>
+          </div>
+          <div class="ai-verdict">
+            <div id="ai-tag-bad" class="ai-chip-bad">RECHAZADA 0/25 · PANTALLA PC</div>
+            <div class="ai-v-title">Bloqueo total de falsos positivos</div>
+            <div class="ai-v-desc">Incluso si fotografían un manglar en un monitor, la IA lo detecta.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-footer">
+        <div id="ai-b1" class="ai-pill-bar">100 % Offline (IndexedDB + SW)</div>
+        <div id="ai-b2" class="ai-pill-bar">Dictado de voz IA en español</div>
+        <div id="ai-b3" class="ai-pill-bar">6 capas anti-spam + hash SHA-256</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#ai-h2", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.7, ease: "power4.out" }, 0.15);
+    tl.fromTo("#ai-badge", { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1, duration: 0.55, ease: "back.out(1.4)" }, 0.5);
+    tl.fromTo("#ai-card-left", { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.75, ease: "power3.out" }, 1.1);
+    tl.fromTo("#ai-scan-1", { y: 0, opacity: 1 }, { y: 348, opacity: 0.15, duration: 1.6, ease: "power1.inOut" }, 1.9);
+    tl.fromTo("#ai-tag-ok", { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "back.out(1.6)" }, 3.4);
+    tl.fromTo("#ai-card-right", { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.75, ease: "power3.out" }, 4.6);
+    tl.fromTo("#ai-scan-2", { y: 0, opacity: 1 }, { y: 348, opacity: 0.15, duration: 1.6, ease: "power1.inOut" }, 5.4);
+    tl.fromTo("#ai-tag-bad", { scale: 1.18, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "power4.out" }, 6.9);
+    tl.fromTo("#ai-b1", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 8.3);
+    tl.fromTo("#ai-b2", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 8.65);
+    tl.fromTo("#ai-b3", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 9.0);
+    tl.fromTo("#ai-glow", { scale: 0.9, opacity: 0.6 }, { scale: 1.1, opacity: 1, duration: 6.5, repeat: 1, yoyo: true, ease: "sine.inOut" }, 0);
+    window.__timelines["ai"] = tl;
+  </script>
+</template>
