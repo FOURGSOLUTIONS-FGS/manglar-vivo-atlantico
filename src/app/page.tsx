@@ -168,7 +168,7 @@ export default function HomePage() {
                     Reportar en campo
                   </span>
                   <span className="mt-0.5 block text-xs font-bold text-[#041A29]/80">
-                    Funciona sin internet · 4 dominios claros · Foto EXIF y GPS honesto
+                    Funciona sin internet · 3 pasos fáciles · Foto y ubicación real
                   </span>
                 </div>
                 <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
@@ -184,7 +184,7 @@ export default function HomePage() {
                     Sala Operativa CRA
                   </span>
                   <span className="mt-0.5 block text-xs text-white/75">
-                    Mapa satelital en vivo · 524 puntos ground-truth · Datos abiertos Ley 1581
+                    Mapa en vivo · 524 puntos verificados · Datos abiertos para todos
                   </span>
                 </div>
                 <ArrowUpRight className="h-5 w-5 shrink-0 text-[#F8D86F] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -232,7 +232,7 @@ export default function HomePage() {
               {
                 value: `${CRA_GLOBAL_METRICS.reservaCarbonoTc.toLocaleString("es-CO")} tC`,
                 title: "Reserva de carbono azul",
-                detail: `Contraste continuo con ${CRA_GLOBAL_METRICS.groundTruthPoints} puntos ground-truth validados por la CRA.`,
+                detail: `Comparamos cada reporte con ${CRA_GLOBAL_METRICS.groundTruthPoints} puntos que los expertos ya visitaron en la costa.`,
                 accent: "text-[#86EFAC]",
               },
             ].map((item, idx) => (
@@ -412,7 +412,7 @@ export default function HomePage() {
                 Doble validación antes de activar alertas oficiales
               </h2>
               <p className="text-sm leading-relaxed text-white/85 sm:text-base">
-                Ningún dato sin verificar dispara operativos en falso. Cada reporte suma puntaje en el Semáforo de Confiabilidad (0–100) combinando foto con EXIF, GPS preciso, contraste con los 524 puntos ground-truth y aval de mentor comunitario y académico.
+                Antes de activar una emergencia, nuestro Semáforo de Confiabilidad (0–100) revisa la foto real, la ubicación exacta, los 524 lugares ya visitados por expertos y el visto bueno de líderes locales y científicos.
               </p>
               <Link
                 href="/validar"

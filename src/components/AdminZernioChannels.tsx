@@ -120,10 +120,10 @@ export function AdminZernioChannels() {
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/14 bg-[#082438] p-6">
         <div>
           <h2 className="font-display text-2xl font-black text-white">
-            Canales Omnicanal Zernio (WhatsApp · Telegram · Instagram · SMS)
+            Recibir reportes por WhatsApp, Telegram y Redes
           </h2>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-white/75">
-            Permite que ciudadanos, turistas y escuelas reporten amenazas enviando una foto por WhatsApp, Telegram, Instagram DM o SMS. El webhook procesa la foto con IA anti-falsos, registra el caso en Supabase y devuelve automáticamente el código de seguimiento.
+            Cualquier persona puede enviar una foto desde WhatsApp, Telegram, Instagram o SMS sin descargar nada. Nuestro ayudante inteligente revisa la foto, guarda el reporte en el mapa y le responde automáticamente con su código de seguimiento.
           </p>
         </div>
 
@@ -136,10 +136,10 @@ export function AdminZernioChannels() {
         >
           <Radio className="h-3.5 w-3.5" />
           {loading
-            ? "VERIFICANDO ZERNIO..."
+            ? "REVISANDO CONEXIÓN..."
             : data?.configured
-            ? `CONECTADO · ${data.accounts.length} CANALES`
-            : "FALTA ZERNIO_API_KEY"}
+            ? `LISTO PARA RECIBIR · ${data.accounts.length} REDES`
+            : "FALTA CONECTAR CUENTA"}
         </span>
       </div>
 
@@ -172,7 +172,7 @@ export function AdminZernioChannels() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
               <Webhook className="h-4 w-4 text-[#F8D86F]" />
-              Webhook entrante activo (`message.received`)
+              Recepción automática de mensajes activa
             </h3>
             <button
               type="button"
@@ -180,7 +180,7 @@ export function AdminZernioChannels() {
               onClick={() => runAction("register_webhook")}
               className="min-h-[36px] rounded-lg bg-[#005F96] px-3 text-xs font-black text-white transition hover:bg-[#EDB512] hover:text-[#041A29] disabled:opacity-50"
             >
-              Registrar webhook en Zernio
+              Verificar conexión automática
             </button>
           </div>
 
@@ -217,14 +217,14 @@ export function AdminZernioChannels() {
           <div>
             <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
               <MessageSquare className="h-4 w-4 text-[#86EFAC]" />
-              WhatsApp Sandbox inmediato (sin comprar número)
+              Probar por WhatsApp gratis ahora (sin comprar número)
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-white/75">
-              Activa pruebas reales de WhatsApp en 30 segundos usando el número compartido de Zernio (7 días gratis, 50 mensajes/día) o compra un número dedicado abajo.
+              Escribe tu número con +57 y toca Activar. Te llegará un WhatsApp de prueba: respóndelo y ya podrás mandar fotos del manglar por chat durante 7 días gratis.
             </p>
             {data?.whatsappSandbox?.phoneNumber && (
               <p className="mt-2 font-mono text-xs font-bold text-[#86EFAC]">
-                Número sandbox: {data.whatsappSandbox.phoneNumber}
+                Número de prueba gratis: {data.whatsappSandbox.phoneNumber}
               </p>
             )}
           </div>
@@ -256,12 +256,12 @@ export function AdminZernioChannels() {
           <div>
             <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
               <Link2 className="h-4 w-4 text-[#EDB512]" />
-              Conectar canales oficiales al perfil CRA (primeras 2 cuentas gratis)
+              Conectar tus redes en 1 clic (primeras 2 cuentas gratis)
             </h3>
             <p className="text-xs text-white/65">
               {data?.profiles?.length
-                ? `Perfil activo: ${data.profiles[0].name} (${data.profiles[0]._id})`
-                : "Primero crea el perfil oficial y luego genera el enlace de conexión de cada red."}
+                ? `Espacio activo: ${data.profiles[0].name}`
+                : "Primero crea tu espacio de canales y luego conecta la red que quieras."}
             </p>
           </div>
 
@@ -271,7 +271,7 @@ export function AdminZernioChannels() {
             onClick={() => runAction("bootstrap_profile")}
             className="min-h-[40px] rounded-lg bg-[#EDB512] px-4 text-xs font-black text-[#041A29] transition hover:bg-[#F8D86F] disabled:opacity-50"
           >
-            {data?.profiles?.length ? "Verificar perfil CRA" : "1. Crear perfil en Zernio"}
+            {data?.profiles?.length ? "Espacio CRA activo" : "1. Crear espacio de canales"}
           </button>
         </div>
 
@@ -311,7 +311,7 @@ export function AdminZernioChannels() {
                   }
                   className="mt-3.5 inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg border border-white/20 bg-white/5 px-3 text-xs font-black text-[#F8D86F] transition hover:border-[#EDB512] hover:bg-[#EDB512] hover:text-[#041A29] disabled:opacity-45"
                 >
-                  Generar Connect Link
+                  Conectar esta red
                   <ExternalLink className="h-3.5 w-3.5" />
                 </button>
               </div>

@@ -484,8 +484,8 @@ function AdminCommandContent() {
               </span>
               <span className="rounded-lg border border-white/15 bg-[#041A29]/80 px-3 py-1.5 font-mono text-[11px] font-bold text-[#F8D86F] backdrop-blur-md">
                 {channelStatus?.activeProvider === "smtp_hostinger"
-                  ? `SMTP REAL · ${channelStatus.fromAddress}`
-                  : "SANDBOX SMTP ACTIVO"}
+                  ? `CORREO ACTIVO · ${channelStatus.fromAddress}`
+                  : "CORREO EN MODO PRUEBA"}
               </span>
             </div>
 
@@ -578,13 +578,13 @@ function AdminCommandContent() {
           {/* Pestañas principales */}
           <div className="mt-5 flex flex-wrap gap-2">
             {[
-              { id: "panorama", label: "Panorama e históricos" },
-              { id: "bandeja", label: "Bandeja total y seguimiento" },
-              { id: "canales", label: "Canales Zernio (WA/TG/IG)" },
-              { id: "iot", label: "Estaciones IoT y ciencia" },
-              { id: "matriz", label: "¿Quién recibe cada alerta?" },
-              { id: "correos", label: "Correos urgentes" },
-              { id: "arquitectura", label: "Arquitectura SOLID" },
+              { id: "panorama", label: "Panorama y decisiones" },
+              { id: "bandeja", label: "Bandeja de reportes" },
+              { id: "canales", label: "WhatsApp y Redes" },
+              { id: "iot", label: "Sensores de agua" },
+              { id: "matriz", label: "¿Quién recibe alertas?" },
+              { id: "correos", label: "Enviar correos" },
+              { id: "arquitectura", label: "Cómo funciona (técnico)" },
             ].map((t) => (
               <button
                 key={t.id}
@@ -900,7 +900,7 @@ function AdminCommandContent() {
                                 </div>
                               )}
                               <span className="block text-center font-mono text-[10px] font-bold text-[#005F96]">
-                                {allPhotos.length} foto{allPhotos.length === 1 ? "" : "s"} EXIF
+                                {allPhotos.length} foto{allPhotos.length === 1 ? "" : "s"} real{allPhotos.length === 1 ? "" : "es"}
                               </span>
                             </div>
                           );

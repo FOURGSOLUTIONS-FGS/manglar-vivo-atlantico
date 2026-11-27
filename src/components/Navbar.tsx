@@ -49,7 +49,7 @@ const CRA_LINKS = [
   {
     href: "/cra",
     label: "Sala Operativa Satelital",
-    desc: "Mapa en vivo Supabase Realtime y datos abiertos",
+    desc: "Mapa en vivo del manglar y datos abiertos",
     icon: MapIcon,
   },
   {

@@ -528,7 +528,7 @@ export function AdminAnalytics({
           <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/70">
             <span className="inline-flex items-center gap-1.5 font-bold text-[#86EFAC]">
               <Radio className="h-3.5 w-3.5" />
-              {liveConnected ? "Datos en vivo (Supabase Realtime)" : "Conectando datos en vivo..."}
+              {liveConnected ? "Actualización automática en vivo" : "Conectando datos en vivo..."}
             </span>
             <span className="text-white/30">·</span>
             <span>Incluye histórico demo de 90 días marcado SIMULADO (DEMO)</span>
@@ -816,7 +816,7 @@ export function AdminAnalytics({
             tone: "text-[#7DD3FC]",
           },
           {
-            label: "Cumplimiento SLA",
+            label: "Respuestas a tiempo",
             value: `${slaPct}%`,
             sub: "dentro de la meta por nivel",
             tone: slaPct >= 80 ? "text-[#86EFAC]" : "text-[#FCA5A5]",
@@ -1092,8 +1092,8 @@ export function AdminAnalytics({
           </h3>
           <div className="mt-4 space-y-3 text-xs">
             {[
-              { label: "Enviados (Hostinger SMTP)", value: dispStats.sent, icon: CheckCircle2, tone: "text-[#86EFAC]" },
-              { label: "Sandbox / prueba", value: dispStats.sandbox, icon: Activity, tone: "text-[#F8D86F]" },
+              { label: "Correos enviados", value: dispStats.sent, icon: CheckCircle2, tone: "text-[#86EFAC]" },
+              { label: "Modo prueba", value: dispStats.sandbox, icon: Activity, tone: "text-[#F8D86F]" },
               { label: "Deduplicados anti-spam", value: dispStats.dedup, icon: ShieldCheck, tone: "text-[#7DD3FC]" },
               { label: "Con error", value: dispStats.error, icon: Clock, tone: "text-[#FCA5A5]" },
             ].map((s) => {

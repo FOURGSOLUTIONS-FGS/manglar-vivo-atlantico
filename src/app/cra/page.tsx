@@ -128,10 +128,10 @@ export default function CraDashboardPage() {
                       }`}
                     />
                   </span>
-                  {liveConnected ? "Supabase Realtime conectado" : "Conectando flujo en vivo..."}
+                  {liveConnected ? "Conectado en vivo" : "Conectando mapa en vivo..."}
                 </span>
                 <span className="text-white/30">·</span>
-                <span>Cruce automático con KMZ Prioridades, 828 ha y 524 puntos ground-truth</span>
+                <span>Cruce automático con zonas prioritarias, 828 ha por revisar y 524 puntos verificados</span>
               </div>
             </div>
 

@@ -685,10 +685,10 @@ export function NfcStationExperience({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/12 px-5 py-4">
             <div>
               <h2 className="font-display text-lg font-black text-white sm:text-xl">
-                Apartado científico · Estación fisicoquímica del punto
+                Salud del agua en este punto (estación científica)
               </h2>
               <p className="mt-0.5 text-xs text-white/70">
-                {iotStation?.operador || "Red CRA · Monitoreo Costero"} — No necesitas saber de sensores: toma tu foto y la plataforma cruza el valor cuando la estación esté conectada.
+                {iotStation?.operador || "Red CRA · Monitoreo Costero"} — No necesitas saber de ciencia: solo toma tu foto y la plataforma la une con los datos del agua cuando el medidor esté conectado.
               </p>
             </div>
             <span
@@ -700,8 +700,8 @@ export function NfcStationExperience({
             >
               <Radio className="h-3.5 w-3.5" />
               {iotStation?.estado === "en_vivo"
-                ? "LECTURA EN VIVO"
-                : "ESTACIÓN INACTIVA · LISTA PARA API"}
+                ? "MEDIDOR EN VIVO"
+                : "MEDIDOR LISTO PARA CONECTAR"}
             </span>
           </div>
 

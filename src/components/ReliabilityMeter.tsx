@@ -10,7 +10,7 @@ interface ReliabilityMeterProps {
 }
 
 const SEGMENTS = [
-  { key: "foto", label: "Foto EXIF", max: 25 },
+  { key: "foto", label: "Foto real", max: 25 },
   { key: "gps", label: "GPS CRA", max: 25 },
   { key: "tiempo", label: "Tiempo", max: 15 },
   { key: "gt", label: "Ground-Truth", max: 15 },

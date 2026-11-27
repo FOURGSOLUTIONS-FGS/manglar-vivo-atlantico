@@ -864,7 +864,7 @@ function ReportarContent() {
 
               <p className="text-sm leading-relaxed text-[#041A29]/75">
                 {receipt.offline
-                  ? "Tu fotografía original (EXIF intacto), coordenadas y clasificación quedaron guardadas en IndexedDB. Subirán automáticamente apenas regrese la señal."
+                  ? "Tu foto, ubicación y reporte quedaron guardados en tu celular. Se enviarán solos apenas vuelva la señal."
                   : receipt.classification.nextStepSimple}
               </p>
 
@@ -1176,10 +1176,10 @@ function ReportarContent() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="font-display text-2xl font-black text-[#041A29] sm:text-3xl">
-                    Evidencia fotográfica con filtro visual IA
+                    Toma o sube una foto de lo que ves
                   </h1>
                   <p className="mt-1 text-sm text-[#041A29]/70">
-                    Conservamos el EXIF original (+25 pts) y verificamos automáticamente que la foto corresponda a un manglar real y no a un falso positivo.
+                    Guardamos tu foto original (+25 pts) y nuestro ayudante inteligente revisa que muestre un manglar o situación real.
                   </p>
                   <p className="mt-1.5 text-xs font-bold text-[#9F2D15]">
                     Seguridad primero: no te acerques a fuego, maquinaria, agua contaminada ni presuntos infractores; fotografía siempre a distancia segura.
@@ -1294,7 +1294,7 @@ function ReportarContent() {
                     Sube de 1 a 3 fotografías (multi-ángulo)
                   </span>
                   <span className="mt-1.5 max-w-md text-xs text-white/70">
-                    1 foto = 18/25 pts · 2 o 3 fotos desde distintos ángulos = 25/25 pts. El filtro IA detecta fotos ajenas al manglar y hashes duplicados.
+                    Con 1 foto ya puedes enviar; con 2 o 3 fotos desde distintos lados ayudas aún más (25/25 pts). Revisamos que sean fotos reales y nuevas.
                   </span>
                   <input
                     type="file"
@@ -1413,7 +1413,7 @@ function ReportarContent() {
                       )}
 
                       {aiLoading
-                        ? "Auditando píxeles con IA multimodal..."
+                        ? "Revisando tu foto..."
                         : aiPhotoValid === false
                         ? `Evidencia rechazada por filtro IA (0/25 pts) · ${String(aiResult?.model || "")}`
                         : aiPhotoValid === null
@@ -1728,14 +1728,14 @@ function ReportarContent() {
                       }`}
                     />
                     {showTechDetails
-                      ? "Ocultar trazabilidad EXIF y Ground-Truth"
-                      : "Ver trazabilidad EXIF y Ground-Truth CRA"}
+                      ? "Ocultar detalles técnicos de tu foto y lugar"
+                      : "Ver detalles técnicos de tu foto y lugar"}
                   </button>
 
                   {showTechDetails && (
                     <div className="grid gap-3 rounded-lg border border-[#041A29]/10 bg-white p-3.5 text-xs sm:grid-cols-2">
                       <div>
-                        <p className="font-black text-[#041A29]">Metadatos EXIF preservados</p>
+                        <p className="font-black text-[#041A29]">Datos originales de la foto guardados</p>
                         <p className="mt-1 text-[#041A29]/75">
                           {exifInfo
                             ? `Archivo original ${Math.round(Number(exifInfo.originalBytes || 0) / 1024)} KB · Cámara: ${String(

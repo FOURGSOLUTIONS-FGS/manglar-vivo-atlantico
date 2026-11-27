@@ -68,7 +68,7 @@ export function OfflineSyncBanner({ onSynced }: { onSynced?: () => void }) {
           {!online ? (
             <p className="font-bold">
               Sin conexión · Modo campo offline activo
-              {pending.length > 0 ? ` (${pending.length} en cola IndexedDB)` : ""}
+              {pending.length > 0 ? ` (${pending.length} guardados en tu celular)` : ""}
             </p>
           ) : pending.length > 0 ? (
             <p className="font-bold">
@@ -79,7 +79,7 @@ export function OfflineSyncBanner({ onSynced }: { onSynced?: () => void }) {
           )}
           {!online && (
             <p className="text-xs text-[#041A29]/75">
-              Fotos originales (con EXIF), GPS y cruce espacial se guardan localmente y suben automáticamente al reconectar.
+              Tus fotos y ubicación se guardan en el celular sin gastar datos y se envían solas al volver la señal.
             </p>
           )}
         </div>
