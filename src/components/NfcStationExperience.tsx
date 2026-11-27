@@ -389,7 +389,7 @@ export function NfcStationExperience({
           <audio
             ref={audioRef}
             src={station.audioSrc}
-            preload="metadata"
+            preload="none"
             onLoadedMetadata={(e) => {
               const dur = e.currentTarget.duration;
               if (Number.isFinite(dur) && dur > 0) setAudioDurationSec(dur);
@@ -595,6 +595,8 @@ export function NfcStationExperience({
               <img
                 src={minimapSrc}
                 alt={`Mapa satelital de ${station.nombre}`}
+                loading="lazy"
+                decoding="async"
                 className="h-auto w-full"
               />
             </a>
@@ -609,6 +611,8 @@ export function NfcStationExperience({
                   <img
                     src={ph.src}
                     alt={ph.caption}
+                    loading="lazy"
+                    decoding="async"
                     className="h-32 w-full object-cover"
                   />
                   <figcaption className="px-3 py-2 text-[11px] font-bold text-white/80">
@@ -791,6 +795,8 @@ export function NfcStationExperience({
                     <img
                       src={stop.heroPhoto}
                       alt={stop.shortName}
+                      loading="lazy"
+                      decoding="async"
                       className={`h-full w-full object-cover ${
                         isUnlocked || isCurrent ? "" : "opacity-65 grayscale-[35%]"
                       }`}

@@ -132,7 +132,7 @@ export default function EscuelasPage() {
 
           <div className="overflow-hidden rounded-xl lg:col-span-5">
             <img
-              src="/images/escuelas-guardianes.png"
+              src="/images/escuelas-guardianes.jpg"
               alt="Estudiantes del Atlántico participando en monitoreo costero"
               className="h-[300px] w-full object-cover sm:h-[360px]"
             />

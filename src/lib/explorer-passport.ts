@@ -28,7 +28,7 @@ export const TRAIL_STATIONS: TrailStationMeta[] = [
     shortName: "Ciénaga de Mallorquín",
     lat: 11.0442,
     lon: -74.8592,
-    heroPhoto: "/images/turista-qr-sendero.png",
+    heroPhoto: "/images/turista-qr-sendero.jpg",
     teaser: "70,659 t de carbono azul frente a Barranquilla.",
     secretFact:
       "Una sola hectárea de mangle rojo aquí captura hasta 4 veces más carbono que un bosque tropical terrestre.",
@@ -61,7 +61,7 @@ export const TRAIL_STATIONS: TrailStationMeta[] = [
     shortName: "Puerto Velero – Balboa",
     lat: 10.9554,
     lon: -75.0412,
-    heroPhoto: "/images/hero-manglar-atlantico.png",
+    heroPhoto: "/images/hero-manglar-atlantico.jpg",
     teaser: "Corredor estuarino que amortigua el oleaje del Caribe.",
     secretFact:
       "Más del 70 % de los peces y camarones de la pesca artesanal local crecen protegidos entre estas raíces.",
@@ -94,7 +94,7 @@ export const TRAIL_STATIONS: TrailStationMeta[] = [
     shortName: "Estuario Juan de Acosta",
     lat: 10.8719,
     lon: -75.0972,
-    heroPhoto: "/images/hero-manglar-atlantico.png",
+    heroPhoto: "/images/hero-manglar-atlantico.jpg",
     teaser: "Zona crítica de sequía 2026 (-0.151 anomalía NDVI).",
     secretFact:
       "Este tramo registró el mayor estrés hídrico del Atlántico en 2026: cada foto ciudadana ayuda a medir su recuperación.",
@@ -127,7 +127,7 @@ export const TRAIL_STATIONS: TrailStationMeta[] = [
     shortName: "Ciénaga del Totumo",
     lat: 10.7512,
     lon: -75.2384,
-    heroPhoto: "/images/escuelas-guardianes.png",
+    heroPhoto: "/images/escuelas-guardianes.jpg",
     teaser: "451.8 ha pendientes por verificar en campo (55% del reto).",
     secretFact:
       "Aquí está la mayor oportunidad de ciencia ciudadana del departamento: convertir dudas satelitales en mapa oficial.",

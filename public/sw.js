@@ -3,40 +3,18 @@
 // 1. App Shell + GeoJSON ligeros cacheados para abrir en frío en modo avión.
 // 2. /api/* y supabase.co SIEMPRE van directo a red (IndexedDB gestiona mutaciones offline).
 // 3. Bump obligatorio de VERSION cuando cambien assets críticos o lógica de captura.
-const VERSION = "manglar-vivo-v7";
+const VERSION = "manglar-vivo-v8";
 
+// Pre-caché liviano (< 350 KB) para no saturar conexiones 2G/3G en la primera visita;
+// audios MP3, imágenes satelitales y páginas secundarias se cachean bajo demanda (Stale-While-Revalidate).
 const SHELL_ASSETS = [
   "/",
   "/reportar",
-  "/escuelas",
-  "/turista",
-  "/validar",
-  "/cra",
-  "/admin",
-  "/participacion",
-  "/p/1",
-  "/p/2",
   "/p/3",
-  "/p/4",
   "/manifest.json",
-  "/dataset/manifest.json",
   "/media/logo_cra_blanco.png",
-  "/media/audio/estacion-1.mp3",
-  "/media/audio/estacion-2.mp3",
-  "/media/audio/estacion-3.mp3",
-  "/media/audio/estacion-4.mp3",
-  "/media/sat/z1_img.jpg",
-  "/media/sat/z2_img.jpg",
-  "/media/sat/z3_img.jpg",
-  "/media/sat/z4_img.jpg",
   "/images/pwa-icon-192.png",
-  "/images/pwa-icon-512.png",
-  "/images/hero-manglar-atlantico.png",
-  "/images/escuelas-guardianes.png",
-  "/images/turista-qr-sendero.png",
   "/data/geo/cra_sectors.geojson",
-  "/data/geo/cra_mangrove_layers.geojson",
-  "/data/geo/coastal_priorities_light.geojson",
   "/data/geo/cra_ground_truth_pts.geojson",
 ];
 
@@ -95,7 +73,7 @@ self.addEventListener("fetch", (event) => {
           return res;
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("network-timeout")), 2800)
+          setTimeout(() => reject(new Error("network-timeout")), 2000)
         ),
       ]).catch(async () => {
         const exact = await caches.match(req);

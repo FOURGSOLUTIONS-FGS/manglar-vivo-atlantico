@@ -108,8 +108,9 @@ export default function TuristaPage() {
         <div className="mx-auto grid max-w-[1440px] items-center gap-10 px-5 py-10 lg:grid-cols-12 lg:px-10 lg:py-14">
           <div className="overflow-hidden rounded-xl border border-white/12 lg:col-span-6">
             <img
-              src="/images/turista-qr-sendero.png"
+              src="/images/turista-qr-sendero.jpg"
               alt="Sendero elevado turístico en manglar del Atlántico"
+              decoding="async"
               className="h-[300px] w-full object-cover sm:h-[360px]"
             />
           </div>

@@ -115,7 +115,8 @@ export default function HomePage() {
               muted
               loop
               playsInline
-              poster="/images/hero-manglar-atlantico.png"
+              preload="none"
+              poster="/images/hero-manglar-atlantico.jpg"
               className="h-full w-full object-cover will-change-transform"
             >
               <source src="/media/portada_960.mp4" type="video/mp4" />
@@ -335,7 +336,9 @@ export default function HomePage() {
           <div className="grid items-center gap-10 lg:grid-cols-12">
             <div data-clip-reveal className="overflow-hidden rounded-xl lg:col-span-7">
               <img
-                src="/images/escuelas-guardianes.png"
+                src="/images/escuelas-guardianes.jpg"
+                loading="lazy"
+                decoding="async"
                 alt="Estudiantes del Atlántico realizando monitoreo ciudadano de manglares"
                 className="h-[320px] w-full object-cover sm:h-[420px]"
               />
@@ -388,7 +391,9 @@ export default function HomePage() {
 
             <div data-clip-reveal className="order-1 overflow-hidden rounded-xl lg:order-2 lg:col-span-7">
               <img
-                src="/images/turista-qr-sendero.png"
+                src="/images/turista-qr-sendero.jpg"
+                loading="lazy"
+                decoding="async"
                 alt="Sendero elevado con estación QR en manglar del Caribe colombiano"
                 className="h-[320px] w-full object-cover sm:h-[420px]"
               />
