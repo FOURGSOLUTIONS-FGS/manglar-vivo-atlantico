@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -34,6 +34,7 @@ import {
 } from "@/components/AdminAnalytics";
 import { AdminZernioChannels } from "@/components/AdminZernioChannels";
 import {
+  ensureAlertAudioUnlocked,
   playAlertSound,
   requestBrowserNotificationPermission,
   showBrowserAlertNotification,
@@ -211,6 +212,40 @@ function AdminCommandContent() {
     channel?: string;
   } | null>(null);
 
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+
+  const notifyForNewReport = (row: AdminReportRow) => {
+    if (!row?.id || seenIdsRef.current.has(row.id)) return;
+    seenIdsRef.current.add(row.id);
+    const exif = (row.evidencia_exif as Record<string, unknown> | null) ?? null;
+    const ai = (row.ai_classification as Record<string, unknown> | null) ?? null;
+    const cls = classifyAlert({
+      id: row.id,
+      trackingCode: row.tracking_code,
+      tipoEvento: row.tipo_evento,
+      subtipoEvento: typeof exif?.subtipo_evento === "string" ? exif.subtipo_evento : null,
+      zonaManglar: row.zona_manglar,
+      municipio: row.municipio,
+      enZonaPorRevisar: row.en_zona_por_revisar,
+      nivelPrioridad: row.nivel_prioridad,
+      puntajeConfiabilidad: row.puntaje_confiabilidad,
+      estadoValidacion: row.estado_validacion,
+      latitud: Number(row.latitud),
+      longitud: Number(row.longitud),
+      aiPhotoValid:
+        typeof ai?.es_evidencia_valida === "boolean" ? ai.es_evidencia_valida : null,
+    });
+    if (soundEnabledRef.current) playAlertSound(cls.soundProfile);
+    showBrowserAlertNotification({
+      title: `${cls.badgeLabel} · ${row.tracking_code}`,
+      body: `${row.zona_manglar}: ${cls.kidFriendlyHeadline}`,
+      tag: row.tracking_code,
+    });
+  };
+
   const fetchAll = async () => {
     const [repRes, alertRes, iotRes] = await Promise.all([
       fetch("/api/reports"),
@@ -219,7 +254,18 @@ function AdminCommandContent() {
     ]);
     if (repRes.ok) {
       const rJson = await repRes.json();
-      setReports(rJson.reports || []);
+      const rows = (rJson.reports || []) as AdminReportRow[];
+      if (!initializedRef.current) {
+        rows.forEach((r) => seenIdsRef.current.add(r.id));
+        initializedRef.current = true;
+      } else {
+        const fresh = rows.filter((r) => !seenIdsRef.current.has(r.id));
+        if (fresh.length > 0) {
+          notifyForNewReport(fresh[0]);
+          fresh.slice(1).forEach((r) => seenIdsRef.current.add(r.id));
+        }
+      }
+      setReports(rows);
     }
     if (alertRes.ok) {
       const aJson = await alertRes.json();
@@ -237,10 +283,16 @@ function AdminCommandContent() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      ensureAlertAudioUnlocked();
       if ("Notification" in window) setNotifPerm(Notification.permission);
       if (sessionStorage.getItem("cra_admin_unlocked") === "1") setAdminUnlocked(true);
     }
     fetchAll();
+
+    // Respaldo de sincronización cada 6 s por si el Wi-Fi del evento corta WebSockets
+    const pollId = window.setInterval(() => {
+      fetchAll().catch(() => {});
+    }, 6000);
 
     const supabase = createBrowserSupabase();
     const channel = supabase
@@ -250,30 +302,7 @@ function AdminCommandContent() {
         { event: "INSERT", schema: "public", table: "citizen_reports" },
         (payload) => {
           const row = payload.new as AdminReportRow;
-          const exif = (row.evidencia_exif as Record<string, unknown> | null) ?? null;
-          const ai = (row.ai_classification as Record<string, unknown> | null) ?? null;
-          const cls = classifyAlert({
-            id: row.id,
-            trackingCode: row.tracking_code,
-            tipoEvento: row.tipo_evento,
-            subtipoEvento: typeof exif?.subtipo_evento === "string" ? exif.subtipo_evento : null,
-            zonaManglar: row.zona_manglar,
-            municipio: row.municipio,
-            enZonaPorRevisar: row.en_zona_por_revisar,
-            nivelPrioridad: row.nivel_prioridad,
-            puntajeConfiabilidad: row.puntaje_confiabilidad,
-            estadoValidacion: row.estado_validacion,
-            latitud: Number(row.latitud),
-            longitud: Number(row.longitud),
-            aiPhotoValid:
-              typeof ai?.es_evidencia_valida === "boolean" ? ai.es_evidencia_valida : null,
-          });
-          if (soundEnabled) playAlertSound(cls.soundProfile);
-          showBrowserAlertNotification({
-            title: `${cls.badgeLabel} · ${row.tracking_code}`,
-            body: `${row.zona_manglar}: ${cls.kidFriendlyHeadline}`,
-            tag: row.tracking_code,
-          });
+          notifyForNewReport(row);
           fetchAll();
         }
       )
@@ -287,9 +316,10 @@ function AdminCommandContent() {
       });
 
     return () => {
+      window.clearInterval(pollId);
       supabase.removeChannel(channel);
     };
-  }, [soundEnabled]);
+  }, []);
 
   const enriched = useMemo(() => {
     return reports.map((r) => {

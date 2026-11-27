@@ -3,16 +3,37 @@
 import type { AlertSoundProfile } from "@/core/alerts/types";
 
 let sharedCtx: AudioContext | null = null;
+let unlockBound = false;
+
+export function ensureAlertAudioUnlocked() {
+  if (typeof window === "undefined" || unlockBound) return;
+  unlockBound = true;
+  const unlock = () => {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!sharedCtx) sharedCtx = new AudioCtx();
+    if (sharedCtx.state === "suspended") {
+      sharedCtx.resume().catch(() => {});
+    }
+  };
+  window.addEventListener("pointerdown", unlock, { passive: true });
+  window.addEventListener("keydown", unlock, { passive: true });
+}
+
+if (typeof window !== "undefined") {
+  ensureAlertAudioUnlocked();
+}
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
+  ensureAlertAudioUnlocked();
   const AudioCtx =
-    window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioCtx) return null;
   if (!sharedCtx) sharedCtx = new AudioCtx();
-  if (sharedCtx.state === "suspended") {
-    sharedCtx.resume().catch(() => {});
-  }
   return sharedCtx;
 }
 
@@ -21,7 +42,7 @@ function playTone(
   freq: number,
   startOffsetSec: number,
   durationSec: number,
-  volume = 0.14,
+  volume = 0.24,
   type: OscillatorType = "triangle"
 ) {
   const osc = ctx.createOscillator();
@@ -42,6 +63,29 @@ function playTone(
   osc.stop(ctx.currentTime + startOffsetSec + durationSec + 0.02);
 }
 
+function scheduleProfile(ctx: AudioContext, profile: AlertSoundProfile) {
+  if (profile === "urgent") {
+    // Señal de emergencia doble pulso nítida (Nivel 1 Urgente)
+    playTone(ctx, 880, 0.0, 0.16, 0.28, "sawtooth");
+    playTone(ctx, 660, 0.18, 0.16, 0.24, "triangle");
+    playTone(ctx, 880, 0.38, 0.18, 0.28, "sawtooth");
+    playTone(ctx, 1046.5, 0.58, 0.28, 0.26, "triangle");
+    return;
+  }
+
+  if (profile === "priority") {
+    // Aviso cálido de 2 tonos (Nivel 2 Alta / Nivel 3 Media)
+    playTone(ctx, 587.33, 0.0, 0.18, 0.24, "sine");
+    playTone(ctx, 783.99, 0.2, 0.25, 0.24, "sine");
+    return;
+  }
+
+  // Confirmación positiva ascendente (Nivel 4 Verificación 828 ha)
+  playTone(ctx, 523.25, 0.0, 0.12, 0.2, "sine");
+  playTone(ctx, 659.25, 0.13, 0.12, 0.2, "sine");
+  playTone(ctx, 783.99, 0.26, 0.24, 0.22, "sine");
+}
+
 /**
  * Reproduce señales acústicas diferenciadas por nivel de alerta (100% Web Audio API offline).
  */
@@ -50,30 +94,21 @@ export function playAlertSound(profile: AlertSoundProfile): boolean {
   const ctx = getAudioContext();
   if (!ctx) return false;
 
-  if (profile === "urgent") {
-    // Señal de emergencia doble pulso nítida (Nivel 1 Urgente)
-    playTone(ctx, 880, 0.0, 0.16, 0.18, "sawtooth");
-    playTone(ctx, 660, 0.18, 0.16, 0.16, "triangle");
-    playTone(ctx, 880, 0.38, 0.18, 0.18, "sawtooth");
-    playTone(ctx, 1046.5, 0.58, 0.28, 0.16, "triangle");
+  if (ctx.state === "suspended") {
+    ctx
+      .resume()
+      .then(() => scheduleProfile(ctx, profile))
+      .catch(() => {});
     return true;
   }
 
-  if (profile === "priority") {
-    // Aviso cálido de 2 tonos (Nivel 2 Alta / Nivel 3 Media)
-    playTone(ctx, 587.33, 0.0, 0.18, 0.14, "sine");
-    playTone(ctx, 783.99, 0.2, 0.25, 0.14, "sine");
-    return true;
-  }
-
-  // Confirmación positiva ascendente (Nivel 4 Verificación 828 ha)
-  playTone(ctx, 523.25, 0.0, 0.12, 0.12, "sine");
-  playTone(ctx, 659.25, 0.13, 0.12, 0.12, "sine");
-  playTone(ctx, 783.99, 0.26, 0.24, 0.13, "sine");
+  scheduleProfile(ctx, profile);
   return true;
 }
 
-export async function requestBrowserNotificationPermission(): Promise<NotificationPermission | "unsupported"> {
+export async function requestBrowserNotificationPermission(): Promise<
+  NotificationPermission | "unsupported"
+> {
   if (typeof window === "undefined" || !("Notification" in window)) {
     return "unsupported";
   }
