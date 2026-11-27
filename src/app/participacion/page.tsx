@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { CheckSquare, FileText, MapPin, PlusCircle, Users } from "lucide-react";
+import {
+  CheckSquare,
+  Copy,
+  Download,
+  FileText,
+  MapPin,
+  PlusCircle,
+  Users,
+} from "lucide-react";
 import {
   buildCoopConceptDraft,
   buildMgaDraft,
@@ -39,20 +47,18 @@ interface ProposalItem {
 }
 
 export default function ParticipacionPage() {
-  const [tab, setTab] = useState<"actores" | "proponer" | "seguimiento" | "formulacion">(
+  const [tab, setTab] = useState<"proponer" | "actores" | "seguimiento" | "formulacion">(
     "proponer"
   );
   const [actors, setActors] = useState<ActorItem[]>([]);
   const [proposals, setProposals] = useState<ProposalItem[]>([]);
 
-  // Form Actor
   const [actorName, setActorName] = useState("");
   const [actorType, setActorType] = useState("Comunidad u organización de base");
   const [actorAction, setActorAction] = useState("conservacion");
   const [actorSector, setActorSector] = useState(3);
   const [actorMuni, setActorMuni] = useState("Juan de Acosta");
 
-  // Form Propuesta sobre el mapa
   const [picked, setPicked] = useState<{ lat: number; lon: number } | null>({
     lat: 10.8719,
     lon: -75.0972,
@@ -67,12 +73,11 @@ export default function ParticipacionPage() {
   const [propActorIdx, setPropActorIdx] = useState(0);
   const [propTipo, setPropTipo] = useState<ProposalActionType>("Siembra");
   const [propHa, setPropHa] = useState(2.5);
-  const [propSummary, setPropSummary] = useState("");
   const [checklist, setChecklist] = useState<number[]>([1, 1, 0, 0, 1, 0]);
 
-  // Formulación MGA / Cooperación
   const [selectedPropId, setSelectedPropId] = useState<string>("");
   const [draftMode, setDraftMode] = useState<"mga" | "coop">("mga");
+  const [copiedDraft, setCopiedDraft] = useState(false);
 
   const loadAll = async () => {
     const [aRes, pRes] = await Promise.all([fetch("/api/actors"), fetch("/api/proposals")]);
@@ -143,12 +148,10 @@ export default function ParticipacionPage() {
         longitud: picked?.lon ?? null,
         accion_plan_heredada: inherited.accionPlan,
         prioridad_heredada: inherited.prioridad,
-        resumen_objetivo: propSummary,
         checklist_cumplimiento: checklist,
       }),
     });
     setPropTitle("");
-    setPropSummary("");
     setTab("seguimiento");
     loadAll();
   };
@@ -186,13 +189,25 @@ export default function ParticipacionPage() {
         })
     : "";
 
+  const downloadDraftTxt = () => {
+    const blob = new Blob([draftText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${draftMode}_manglar_atlantico.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const checklistPct = Math.round((checklist.filter(Boolean).length / 6) * 100);
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pt-6 md:pt-8">
+    <div className="mx-auto max-w-6xl px-4 pt-4">
       <div className="mb-6">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#005F96]">
           Evolución real de manglarcra.netlify.app/maqueta · Supabase PostGIS
         </p>
-        <h1 className="font-display mt-1 text-3xl font-black text-[#08334C]">
+        <h1 className="font-display mt-1 text-3xl font-black text-[#08334C] sm:text-4xl">
           Actores, Checklists CRA y Formulación MGA / CO₂e
         </h1>
       </div>
@@ -211,9 +226,9 @@ export default function ParticipacionPage() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id as typeof tab)}
-              className={`inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 text-xs font-black transition ${
+              className={`inline-flex min-h-[46px] items-center gap-2 rounded-full px-4 py-2 text-xs font-black transition ${
                 active
-                  ? "bg-[#005F96] text-white"
+                  ? "bg-[#005F96] text-white shadow-sm"
                   : "border border-[#08334C]/12 bg-white text-[#08334C] hover:bg-[#F7F3EA]"
               }`}
             >
@@ -229,7 +244,7 @@ export default function ParticipacionPage() {
           <div className="lg:col-span-6">
             <p className="mb-2 text-xs font-black text-[#08334C]/75">
               <MapPin className="mr-1 inline h-4 w-4 text-[#005F96]" />
-              Haz clic en el mapa para heredar Sector, Acción y Prioridad reales del KMZ:
+              Toca el mapa satelital para heredar Sector, Acción y Prioridad reales:
             </p>
             <CraMap
               reports={[]}
@@ -243,7 +258,7 @@ export default function ParticipacionPage() {
               }}
               onPickPoint={handlePickMap}
               pickedPoint={picked}
-              heightClass="h-[420px]"
+              heightClass="h-[460px]"
             />
           </div>
 
@@ -257,73 +272,60 @@ export default function ParticipacionPage() {
                 </p>
               </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-black text-[#08334C]/70">
-                  Actor proponente
-                </label>
+              <select
+                value={propActorIdx}
+                onChange={(e) => setPropActorIdx(Number(e.target.value))}
+                className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs font-bold"
+              >
+                {actors.map((a, idx) => (
+                  <option key={a.id} value={idx}>
+                    {a.nombre_entidad_o_persona}
+                  </option>
+                ))}
+              </select>
+
+              <div className="grid gap-3 sm:grid-cols-2">
                 <select
-                  value={propActorIdx}
-                  onChange={(e) => setPropActorIdx(Number(e.target.value))}
+                  value={propTipo}
+                  onChange={(e) => setPropTipo(e.target.value as ProposalActionType)}
                   className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs font-bold"
                 >
-                  {actors.map((a, idx) => (
-                    <option key={a.id} value={idx}>
-                      {a.nombre_entidad_o_persona}
+                  {(Object.keys(OFFICIAL_CHECKLISTS) as ProposalActionType[]).map((k) => (
+                    <option key={k} value={k}>
+                      {k}
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-black text-[#08334C]/70">
-                    Tipo de acción CRA
-                  </label>
-                  <select
-                    value={propTipo}
-                    onChange={(e) => setPropTipo(e.target.value as ProposalActionType)}
-                    className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs font-bold"
-                  >
-                    {(Object.keys(OFFICIAL_CHECKLISTS) as ProposalActionType[]).map((k) => (
-                      <option key={k} value={k}>
-                        {k}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-black text-[#08334C]/70">
-                    Hectáreas previstas
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={propHa}
-                    onChange={(e) => setPropHa(Number(e.target.value))}
-                    className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-black text-[#08334C]/70">
-                  Nombre corto del proyecto
-                </label>
                 <input
-                  type="text"
-                  required
-                  value={propTitle}
-                  onChange={(e) => setPropTitle(e.target.value)}
-                  placeholder="Ej. Restauración participativa caño Juan de Acosta"
-                  className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs"
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  value={propHa}
+                  onChange={(e) => setPropHa(Number(e.target.value))}
+                  className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs font-bold"
                 />
               </div>
 
+              <input
+                type="text"
+                required
+                value={propTitle}
+                onChange={(e) => setPropTitle(e.target.value)}
+                placeholder="Nombre corto del proyecto (ej. Siembra comunitaria Juan de Acosta)"
+                className="min-h-[44px] w-full rounded-xl border border-[#08334C]/15 bg-[#F7F3EA] px-3 text-xs"
+              />
+
               <div>
-                <p className="mb-2 text-xs font-black text-[#08334C]/70">
-                  Checklist oficial CRA (Res. 1263 de 2018 · 6 ítems):
-                </p>
+                <div className="mb-1.5 flex items-center justify-between text-xs font-black">
+                  <span className="text-[#08334C]/75">Checklist oficial CRA (Res. 1263/2018)</span>
+                  <span className="tabular-nums text-[#1F7A4C]">{checklistPct}% listo</span>
+                </div>
+                <div className="mb-3 h-2 overflow-hidden rounded-full bg-[#F7F3EA]">
+                  <div
+                    className="h-full rounded-full bg-[#1F7A4C] transition-all duration-300"
+                    style={{ width: `${checklistPct}%` }}
+                  />
+                </div>
                 <div className="space-y-1.5">
                   {OFFICIAL_CHECKLISTS[propTipo].map((item, i) => (
                     <label key={item} className="flex items-start gap-2 text-xs text-[#08334C]/85">
@@ -498,7 +500,7 @@ export default function ParticipacionPage() {
                 ))}
               </select>
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setDraftMode("mga")}
@@ -515,7 +517,7 @@ export default function ParticipacionPage() {
                     draftMode === "coop" ? "bg-[#005F96] text-white" : "bg-[#F7F3EA]"
                   }`}
                 >
-                  Nota Conceptual Cooperación (CO₂e)
+                  Nota Conceptual (CO₂e)
                 </button>
               </div>
             </div>
@@ -523,6 +525,29 @@ export default function ParticipacionPage() {
             <pre className="whitespace-pre-wrap rounded-2xl bg-[#08334C] p-5 font-sans text-xs leading-relaxed text-[#F7F3EA]">
               {draftText}
             </pre>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(draftText);
+                  setCopiedDraft(true);
+                  setTimeout(() => setCopiedDraft(false), 1800);
+                }}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-full bg-[#F7F3EA] px-4 text-xs font-black text-[#08334C]"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {copiedDraft ? "¡Texto copiado!" : "Copiar borrador"}
+              </button>
+              <button
+                type="button"
+                onClick={downloadDraftTxt}
+                className="inline-flex min-h-[42px] items-center gap-2 rounded-full bg-[#005F96] px-4 text-xs font-black text-white"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Descargar .txt
+              </button>
+            </div>
           </div>
         </div>
       )}

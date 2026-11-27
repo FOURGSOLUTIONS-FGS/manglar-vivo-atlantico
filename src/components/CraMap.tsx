@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
+import { Globe, Map as MapIcon } from "lucide-react";
 import { PLAN_COLORS } from "@/lib/cra-domain";
 
 export interface MapReportItem {
@@ -31,7 +32,9 @@ export interface CraMapProps {
   };
   onPickPoint?: (lat: number, lon: number) => void;
   pickedPoint?: { lat: number; lon: number } | null;
+  flyToTarget?: { lat: number; lon: number; zoom?: number } | null;
   heightClass?: string;
+  defaultSatellite?: boolean;
 }
 
 export default function CraMap({
@@ -39,12 +42,16 @@ export default function CraMap({
   layersVisible,
   onPickPoint,
   pickedPoint,
+  flyToTarget,
   heightClass = "h-[460px] md:h-[540px]",
+  defaultSatellite = true,
 }: CraMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const groupsRef = useRef<Record<string, L.LayerGroup>>({});
-  const pickMarkerRef = useRef<L.CircleMarker | null>(null);
+  const pickMarkerRef = useRef<L.LayerGroup | null>(null);
+  const tileRef = useRef<{ sat: L.TileLayer; street: L.TileLayer } | null>(null);
+  const [isSatellite, setIsSatellite] = useState(defaultSatellite);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -55,10 +62,26 @@ export default function CraMap({
       zoomControl: true,
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap · CRA Atlántico",
-      maxZoom: 18,
-    }).addTo(map);
+    const sat = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        attribution: "Esri World Imagery · CRA Atlántico",
+        maxZoom: 18,
+      }
+    );
+
+    const street = L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      {
+        attribution: "&copy; OpenStreetMap &copy; CARTO · CRA Atlántico",
+        maxZoom: 18,
+      }
+    );
+
+    if (defaultSatellite) sat.addTo(map);
+    else street.addTo(map);
+
+    tileRef.current = { sat, street };
 
     const groups: Record<string, L.LayerGroup> = {
       priorities: L.layerGroup(),
@@ -69,6 +92,7 @@ export default function CraMap({
       reports: L.layerGroup().addTo(map),
     };
     groupsRef.current = groups;
+    pickMarkerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
     if (onPickPoint) {
@@ -77,7 +101,6 @@ export default function CraMap({
       });
     }
 
-    // Cargar capas oficiales CRA GeoJSON
     Promise.all([
       fetch("/data/geo/coastal_priorities_light.geojson").then((r) => r.json()).catch(() => null),
       fetch("/data/geo/cra_mangrove_layers.geojson").then((r) => r.json()).catch(() => null),
@@ -91,8 +114,8 @@ export default function CraMap({
             const acc = String(f?.properties?.accion_gen || "Preservación");
             return {
               color: PLAN_COLORS[acc] || "#1f78b4",
-              weight: 1,
-              fillOpacity: 0.2,
+              weight: 1.2,
+              fillOpacity: 0.22,
             };
           },
           onEachFeature: (f, layer) => {
@@ -109,19 +132,19 @@ export default function CraMap({
           const kind = f.properties?.layer;
           if (kind === "manglar_probable" || kind === "manglar_alta_probabilidad") {
             L.geoJSON(f, {
-              style: { color: "#1F7A4C", weight: 1.5, fillColor: "#33A02C", fillOpacity: 0.45 },
+              style: { color: "#4ADE80", weight: 1.5, fillColor: "#22C55E", fillOpacity: 0.42 },
             })
               .bindPopup(`<strong>Manglar probable</strong><br/>${f.properties?.sector_nombre || ""}`)
               .addTo(groups.manglarProbable);
           } else if (kind === "por_revisar_828ha") {
             L.geoJSON(f, {
-              style: { color: "#EDB512", weight: 1.5, fillColor: "#F8D86F", fillOpacity: 0.5 },
+              style: { color: "#F8D86F", weight: 1.5, fillColor: "#EDB512", fillOpacity: 0.48 },
             })
               .bindPopup(`<strong>Zona por revisar (828 ha)</strong><br/>${f.properties?.sector_nombre || ""}`)
               .addTo(groups.porRevisar);
           } else if (kind === "dosel_seco_2026") {
             L.geoJSON(f, {
-              style: { color: "#D94E2A", weight: 1.5, fillColor: "#D94E2A", fillOpacity: 0.45 },
+              style: { color: "#FB7185", weight: 1.5, fillColor: "#D94E2A", fillOpacity: 0.48 },
             })
               .bindPopup(`<strong>Dosel más seco 2026</strong><br/>${f.properties?.sector_nombre || ""}`)
               .addTo(groups.doselSeco);
@@ -135,9 +158,9 @@ export default function CraMap({
           const esManglar = Boolean(f.properties?.es_manglar_consenso);
           L.circleMarker([lat, lon], {
             radius: 3.5,
-            color: esManglar ? "#08334C" : "#64748b",
-            fillColor: esManglar ? "#33a02c" : "#cbd5e1",
-            fillOpacity: 0.9,
+            color: "#FFFFFF",
+            fillColor: esManglar ? "#22C55E" : "#94A3B8",
+            fillOpacity: 0.95,
             weight: 1,
           })
             .bindPopup(
@@ -152,9 +175,23 @@ export default function CraMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [onPickPoint]);
+  }, [onPickPoint, defaultSatellite]);
 
-  // Sincronizar visibilidad de capas
+  // Cambiar mapa base Satélite <-> Mapa claro
+  useEffect(() => {
+    const map = mapRef.current;
+    const tiles = tileRef.current;
+    if (!map || !tiles) return;
+    if (isSatellite) {
+      if (map.hasLayer(tiles.street)) map.removeLayer(tiles.street);
+      if (!map.hasLayer(tiles.sat)) tiles.sat.addTo(map);
+    } else {
+      if (map.hasLayer(tiles.sat)) map.removeLayer(tiles.sat);
+      if (!map.hasLayer(tiles.street)) tiles.street.addTo(map);
+    }
+  }, [isSatellite]);
+
+  // Sincronizar capas
   useEffect(() => {
     const map = mapRef.current;
     const groups = groupsRef.current;
@@ -171,7 +208,16 @@ export default function CraMap({
     });
   }, [layersVisible]);
 
-  // Sincronizar marcadores de reportes en vivo
+  // Vuelo suave al objetivo elegido
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !flyToTarget) return;
+    map.flyTo([flyToTarget.lat, flyToTarget.lon], flyToTarget.zoom ?? 13, {
+      duration: 1.1,
+    });
+  }, [flyToTarget]);
+
+  // Reportes en vivo
   useEffect(() => {
     const grp = groupsRef.current.reports;
     if (!grp) return;
@@ -182,22 +228,30 @@ export default function CraMap({
         r.estado_validacion === "alerta_oficial_cra"
           ? "#D94E2A"
           : r.estado_validacion === "validado_academico" || r.estado_validacion === "validado_comunitario"
-          ? "#1F7A4C"
+          ? "#22C55E"
           : "#EDB512";
 
       L.circleMarker([r.latitud, r.longitud], {
-        radius: 8,
-        color: "#08334C",
-        weight: 2,
+        radius: 14,
+        color,
+        weight: 0,
         fillColor: color,
-        fillOpacity: 0.95,
+        fillOpacity: 0.25,
+      }).addTo(grp);
+
+      L.circleMarker([r.latitud, r.longitud], {
+        radius: 7.5,
+        color: "#FFFFFF",
+        weight: 2.5,
+        fillColor: color,
+        fillOpacity: 1,
       })
         .bindPopup(
-          `<div style="min-width:190px">
+          `<div style="min-width:200px">
             <strong>${r.tracking_code}</strong> ${r.is_simulated_gps ? "(SIMULADO DEMO)" : ""}<br/>
             <span>${r.zona_manglar}</span><br/>
             <span>Evento: <b>${r.tipo_evento}</b></span><br/>
-            <span>Confiabilidad: <b>${r.puntaje_confiabilidad}/100</b></span><br/>
+            <span>Semáforo: <b>${r.puntaje_confiabilidad}/100</b></span><br/>
             <span>Estado: ${r.estado_validacion} · ${r.attention_status}</span>
           </div>`
         )
@@ -205,29 +259,57 @@ export default function CraMap({
     }
   }, [reports]);
 
-  // Marcador de punto seleccionado (para /participacion)
+  // Marcador de punto seleccionado
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (pickMarkerRef.current) {
-      map.removeLayer(pickMarkerRef.current);
-      pickMarkerRef.current = null;
-    }
+    const grp = pickMarkerRef.current;
+    if (!grp) return;
+    grp.clearLayers();
     if (pickedPoint) {
-      pickMarkerRef.current = L.circleMarker([pickedPoint.lat, pickedPoint.lon], {
-        radius: 10,
-        color: "#005F96",
+      L.circleMarker([pickedPoint.lat, pickedPoint.lon], {
+        radius: 18,
+        color: "#F8D86F",
+        weight: 1.5,
+        fillColor: "#EDB512",
+        fillOpacity: 0.28,
+      }).addTo(grp);
+      L.circleMarker([pickedPoint.lat, pickedPoint.lon], {
+        radius: 9,
+        color: "#FFFFFF",
         weight: 3,
-        fillColor: "#F8D86F",
+        fillColor: "#005F96",
         fillOpacity: 1,
-      }).addTo(map);
+      }).addTo(grp);
     }
   }, [pickedPoint]);
 
   return (
-    <div className="bezel-outer">
-      <div className={`bezel-inner overflow-hidden ${heightClass}`}>
+    <div className="bezel-outer relative">
+      <div className={`bezel-inner relative overflow-hidden ${heightClass}`}>
         <div ref={containerRef} className="h-full w-full" />
+
+        {/* Selector flotante Satélite / Mapa */}
+        <div className="absolute right-3 top-3 z-[400] flex overflow-hidden rounded-full border border-white/25 bg-[#08334C]/80 p-1 text-[11px] font-black text-white shadow-lg backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => setIsSatellite(true)}
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 transition ${
+              isSatellite ? "bg-[#EDB512] text-[#08334C]" : "text-white/80 hover:text-white"
+            }`}
+          >
+            <Globe className="h-3 w-3" />
+            Satélite
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSatellite(false)}
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 transition ${
+              !isSatellite ? "bg-white text-[#08334C]" : "text-white/80 hover:text-white"
+            }`}
+          >
+            <MapIcon className="h-3 w-3" />
+            Mapa
+          </button>
+        </div>
       </div>
     </div>
   );

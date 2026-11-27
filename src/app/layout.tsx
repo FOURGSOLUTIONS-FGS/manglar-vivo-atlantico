@@ -3,6 +3,7 @@ import { Fraunces, Lato } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { SwRegister } from "@/components/SwRegister";
+import { SmoothScroll } from "@/components/SmoothScroll";
 
 const lato = Lato({
   subsets: ["latin"],
@@ -42,7 +43,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${lato.variable} ${fraunces.variable}`}>
-      <body className="coastal-grain min-h-[100dvh] pb-24 md:pb-12">
+      <body className="coastal-grain min-h-[100dvh] pb-24 md:pb-14">
+        <SmoothScroll />
         <SwRegister />
         <Navbar />
         <main>{children}</main>
