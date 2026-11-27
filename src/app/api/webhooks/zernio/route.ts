@@ -15,6 +15,30 @@ import { fetchNasaFirmsData } from "@/app/api/nasa-fires/route";
 // Deduplicación en memoria por X-Zernio-Event-Id (TTL 15 min)
 const PROCESSED_EVENTS = new Map<string, number>();
 
+// Ubicación GPS reciente enviada por el usuario en WhatsApp antes de mandar la foto (TTL 10 min)
+const RECENT_USER_LOCATION = new Map<
+  string,
+  { lat: number; lon: number; expiresAt: number }
+>();
+
+function setRecentLocation(senderHash: string, lat: number, lon: number) {
+  const now = Date.now();
+  for (const [k, v] of RECENT_USER_LOCATION.entries()) {
+    if (v.expiresAt < now) RECENT_USER_LOCATION.delete(k);
+  }
+  RECENT_USER_LOCATION.set(senderHash, { lat, lon, expiresAt: now + 10 * 60 * 1000 });
+}
+
+function popRecentLocation(senderHash: string): { lat: number; lon: number } | null {
+  const rec = RECENT_USER_LOCATION.get(senderHash);
+  if (!rec || rec.expiresAt < Date.now()) {
+    RECENT_USER_LOCATION.delete(senderHash);
+    return null;
+  }
+  RECENT_USER_LOCATION.delete(senderHash);
+  return { lat: rec.lat, lon: rec.lon };
+}
+
 function isDuplicateEvent(eventId: string | null): boolean {
   if (!eventId) return false;
   const now = Date.now();
@@ -26,11 +50,23 @@ function isDuplicateEvent(eventId: string | null): boolean {
   return false;
 }
 
+interface ZernioWebhookMetadata {
+  standby?: boolean;
+  latitude?: number;
+  longitude?: number;
+  location?: { latitude?: number; longitude?: number; name?: string; address?: string };
+  interactiveType?: string;
+  interactiveId?: string;
+  quickReplyPayload?: string;
+  postbackPayload?: string;
+}
+
 interface ZernioWebhookPayload {
   id?: string;
   event?: string;
   test?: boolean;
   account?: { accountId?: string; id?: string; platform?: string };
+  metadata?: ZernioWebhookMetadata | null;
   message?: {
     id?: string;
     conversationId?: string;
@@ -41,19 +77,19 @@ interface ZernioWebhookPayload {
       type?: string;
       url?: string;
       mimeType?: string;
+      payload?: {
+        latitude?: number;
+        longitude?: number;
+        coordinates?: { lat?: number; long?: number; lng?: number };
+        voice?: boolean;
+      };
     }>;
     sender?: {
       id?: string;
       name?: string;
       username?: string;
     };
-    metadata?: {
-      standby?: boolean;
-      latitude?: number;
-      longitude?: number;
-      interactiveType?: string;
-      interactiveId?: string;
-    };
+    metadata?: ZernioWebhookMetadata | null;
   };
 }
 
@@ -182,18 +218,36 @@ export async function POST(request: Request) {
   }
 
   const msg = payload.message;
-  if (msg.direction === "outgoing" || msg.metadata?.standby) {
+  const meta: ZernioWebhookMetadata = {
+    ...(msg.metadata || {}),
+    ...(payload.metadata || {}),
+  };
+  if (msg.direction === "outgoing" || meta.standby) {
     return NextResponse.json({ ok: true, skipped: "outgoing_or_standby" });
   }
 
   const platform = (msg.platform || payload.account?.platform || "whatsapp").toLowerCase();
   const accountId = payload.account?.accountId || payload.account?.id || "";
   const conversationId = msg.conversationId || "";
-  const rawText = (msg.text || "").trim();
-  const interactiveId = (msg.metadata?.interactiveId || "").trim().toLowerCase();
+  let rawText = (msg.text || "").trim();
+  const interactiveId = (
+    meta.interactiveId ||
+    meta.quickReplyPayload ||
+    meta.postbackPayload ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
   const lowText = rawText.toLowerCase();
+  // Quitamos emojis/símbolos iniciales para que el texto de botones ("📸 Reportar manglar", "🏠 Menú principal") siempre coincida
+  const cleanText = lowText.replace(/^[^\p{L}\p{N}]+/u, "").trim();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://manglar.arpadura.com").replace(/\/$/, "");
   const supabase = createServerSupabase();
+
+  // Privacidad Ley 1581: NUNCA guardamos teléfono ni username real en citizen_reports (solo hash anónimo)
+  const anonSenderHash = msg.sender?.id
+    ? crypto.createHash("sha256").update(`zernio:${platform}:${msg.sender.id}`).digest("hex").slice(0, 16)
+    : "anon";
 
   const canReply = Boolean(conversationId && accountId);
   if (canReply) {
@@ -206,7 +260,26 @@ export async function POST(request: Request) {
     { type: "postback" as const, title: "🔥 Fuego NASA hoy", payload: "btn_nasa" },
   ];
 
-  // 1. Consulta rápida de estado por código (ej: "estado MGL-2026-1234")
+  // Extraer posible ubicación GPS compartida desde WhatsApp (metadata o adjunto tipo location)
+  const locAttachment = (msg.attachments || []).find((a) => a.type === "location");
+  const rawLat =
+    meta.latitude ??
+    meta.location?.latitude ??
+    locAttachment?.payload?.latitude ??
+    locAttachment?.payload?.coordinates?.lat;
+  const rawLon =
+    meta.longitude ??
+    meta.location?.longitude ??
+    locAttachment?.payload?.longitude ??
+    locAttachment?.payload?.coordinates?.long ??
+    locAttachment?.payload?.coordinates?.lng;
+  const hasExplicitLocation =
+    typeof rawLat === "number" &&
+    typeof rawLon === "number" &&
+    Number.isFinite(rawLat) &&
+    Number.isFinite(rawLon);
+
+  // 1. Consulta rápida de estado por código (ej: "estado MGL-ZN-1234")
   const codeMatch = rawText.match(/MGL-[A-Z0-9]+-[A-Z0-9]+/i);
   if (codeMatch && /estado|seguimiento|codigo|c[oó]digo|status/i.test(rawText)) {
     const code = codeMatch[0].toUpperCase();
@@ -232,7 +305,7 @@ export async function POST(request: Request) {
   }
 
   // 2A. Botón interactivo: 🔥 Fuego NASA hoy (consulta EN VIVO a satélites NASA FIRMS VIIRS 375m)
-  if (interactiveId === "btn_nasa" || /fuego nasa|sat[eé]lite nasa|incendios hoy/i.test(lowText)) {
+  if (interactiveId === "btn_nasa" || /fuego nasa|sat[eé]lite nasa|incendios hoy/i.test(cleanText)) {
     const nasa = await fetchNasaFirmsData().catch(() => null);
     const atlCount = nasa?.atlantico.length ?? 0;
     const caribeCount = nasa?.caribe.length ?? 0;
@@ -269,44 +342,96 @@ export async function POST(request: Request) {
     });
   }
 
-  // 2B. Botón interactivo: 🌿 Explorar los 4 manglares + Pasaporte Costero
-  if (interactiveId === "btn_explorar" || /explorar 4 puntos|pasaporte|especies|turista/i.test(lowText)) {
-    const exploreMsg =
+  // 2B. Botón interactivo: 🌿 Explorar los 4 manglares (Carrusel deslizable nativo de WhatsApp con 4 fotos + botones!)
+  if (interactiveId === "btn_explorar" || /explorar 4 puntos|pasaporte|especies|turista/i.test(cleanText)) {
+    const exploreFallbackMsg =
       `🌿 *¡Explora los 4 Manglares del Atlántico y gana tus sellos!*\n\n` +
       `1️⃣ *Mallorquín* (Barranquilla): ${siteUrl}/p/1\n` +
       `2️⃣ *Puerto Velero* (Pto. Colombia): ${siteUrl}/p/2\n` +
       `3️⃣ *Juan de Acosta* (Estuario): ${siteUrl}/p/3\n` +
       `4️⃣ *Ciénaga del Totumo* (Piojó): ${siteUrl}/p/4\n\n` +
-      `🎧 Cada punto trae *audioguía en voz colombiana*, retos para niños y guía de las 4 especies (rojo, negro, blanco y zaragoza). ¡Compártelo con tu colegio o familia!`;
+      `🎧 Cada punto trae *audioguía en voz colombiana*, retos para niños y guía de las 4 especies.`;
 
     if (canReply) {
-      await replyZernioConversation({
-        conversationId,
-        accountId,
-        attachmentUrl: `${siteUrl}/images/og-backdrop.jpg`,
-        attachmentType: "image",
-        message: exploreMsg,
-        buttons: [
-          { type: "postback", title: "📸 Reportar manglar", payload: "btn_reportar" },
-          { type: "postback", title: "🔥 Fuego NASA hoy", payload: "btn_nasa" },
-          { type: "postback", title: "🏠 Menú principal", payload: "btn_menu" },
-        ],
-      }).catch(() => {});
+      let carouselSent = false;
+      if (platform === "whatsapp") {
+        const res = await replyZernioConversation({
+          conversationId,
+          accountId,
+          interactive: {
+            type: "carousel",
+            body: {
+              text: "🌿 *Desliza los 4 Manglares del Atlántico* ➡️\nToca cualquier punto para escuchar su audioguía en voz colombiana y coleccionar tus sellos del Pasaporte Costero.",
+            },
+            action: {
+              cards: [
+                {
+                  card_index: 0,
+                  type: "cta_url",
+                  header: { type: "image", image: { link: `${siteUrl}/media/sat/z1_img.jpg` } },
+                  body: { text: "1️⃣ *Ciénaga de Mallorquín* (Barranquilla)\nBosque urbano, aves y 828 ha por verificar." },
+                  action: { name: "cta_url", parameters: { display_text: "Abrir audioguía 🎧", url: `${siteUrl}/p/1` } },
+                },
+                {
+                  card_index: 1,
+                  type: "cta_url",
+                  header: { type: "image", image: { link: `${siteUrl}/media/sat/z2_img.jpg` } },
+                  body: { text: "2️⃣ *Puerto Velero – Balboa* (Pto. Colombia)\nCorredor turístico y vigilancia costera." },
+                  action: { name: "cta_url", parameters: { display_text: "Abrir audioguía 🎧", url: `${siteUrl}/p/2` } },
+                },
+                {
+                  card_index: 2,
+                  type: "cta_url",
+                  header: { type: "image", image: { link: `${siteUrl}/media/sat/z3_img.jpg` } },
+                  body: { text: "3️⃣ *Estuario Juan de Acosta* (Tubará)\nSello NFC #03, retos escolares y manglar vivo." },
+                  action: { name: "cta_url", parameters: { display_text: "Abrir audioguía 🎧", url: `${siteUrl}/p/3` } },
+                },
+                {
+                  card_index: 3,
+                  type: "cta_url",
+                  header: { type: "image", image: { link: `${siteUrl}/media/sat/z4_img.jpg` } },
+                  body: { text: "4️⃣ *Ciénaga del Totumo* (Piojó)\nHumedal sagrado, flora local y protección CRA." },
+                  action: { name: "cta_url", parameters: { display_text: "Abrir audioguía 🎧", url: `${siteUrl}/p/4` } },
+                },
+              ],
+            },
+          },
+        }).catch(() => null);
+        carouselSent = Boolean(res?.ok);
+      }
+
+      if (!carouselSent) {
+        await replyZernioConversation({
+          conversationId,
+          accountId,
+          attachmentUrl: `${siteUrl}/images/og-backdrop.jpg`,
+          attachmentType: "image",
+          message: exploreFallbackMsg,
+          buttons: [
+            { type: "postback", title: "📸 Reportar manglar", payload: "btn_reportar" },
+            { type: "postback", title: "🔥 Fuego NASA hoy", payload: "btn_nasa" },
+            { type: "postback", title: "🏠 Menú principal", payload: "btn_menu" },
+          ],
+        }).catch(() => {});
+      }
     }
-    return NextResponse.json({ ok: true, handled: "explore_passport", assistantReplyPreview: exploreMsg });
+    return NextResponse.json({ ok: true, handled: "explore_passport_carousel", assistantReplyPreview: exploreFallbackMsg });
   }
 
-  // 2C. Botón interactivo: 📸 Reportar manglar (pide foto + ofrece ubicación nativa 1 toque en WhatsApp)
-  if (interactiveId === "btn_reportar" || /^reportar( manglar| humo)?$/i.test(lowText)) {
+  // 2C. Botón interactivo: 📸 Reportar manglar / Enviar otra foto (ofrece ubicación nativa 1 toque en WhatsApp)
+  if (
+    interactiveId === "btn_reportar" ||
+    /^(reportar( manglar| humo)?|enviar otra foto)$/i.test(cleanText)
+  ) {
     const guideMsg =
       `📸 *¡Súper fácil! Haz tu reporte en 2 pasos:*\n\n` +
-      `1️⃣ Envíame *1 foto* de lo que ves (tala, fuego, basura, agua rara, aves o manglar sano) con el lugar (ej: *"Basura en Mallorquín"*).\n` +
-      `2️⃣ Si estás en el lugar, toca abajo para compartir tu ubicación exacta.\n\n` +
+      `1️⃣ Toca el botón de abajo para enviarme tu *ubicación exacta* (opcional si ya me dices el lugar).\n` +
+      `2️⃣ Envíame *1 foto* (o una nota de voz) de lo que ves en el manglar.\n\n` +
       `⚠️ *Cuídate:* toma la foto siempre desde una distancia segura.`;
 
     if (canReply) {
       if (platform === "whatsapp") {
-        await replyZernioConversation({
+        const res = await replyZernioConversation({
           conversationId,
           accountId,
           interactive: {
@@ -314,9 +439,10 @@ export async function POST(request: Request) {
             body: { text: guideMsg },
             action: { name: "send_location" },
           },
-        }).catch(() =>
-          replyZernioConversation({ conversationId, accountId, message: guideMsg }).catch(() => {})
-        );
+        }).catch(() => null);
+        if (!res?.ok) {
+          await replyZernioConversation({ conversationId, accountId, message: guideMsg }).catch(() => {});
+        }
       } else {
         await replyZernioConversation({ conversationId, accountId, message: guideMsg }).catch(() => {});
       }
@@ -324,14 +450,79 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, handled: "report_guide", assistantReplyPreview: guideMsg });
   }
 
-  // 2D. Bienvenida inmersiva con FOTO + 3 BOTONES INTERACTIVOS si saluda o toca Menú
   const imageAttachment = (msg.attachments || []).find((a) => a.type === "image" && a.url);
+  const audioAttachment = (msg.attachments || []).find((a) => a.type === "audio" && a.url);
+
+  // 2D. Si el usuario compartió su ubicación GPS sola (sin foto aún): la guardamos o la pegamos a su reporte recién enviado!
+  if (hasExplicitLocation && !imageAttachment && !audioAttachment) {
+    const pinGeo = inferSectorAndCoords("", rawLat, rawLon);
+    setRecentLocation(anonSenderHash, rawLat as number, rawLon as number);
+
+    // Revisar si mandó un reporte por WhatsApp en los últimos 10 minutos sin GPS real para actualizarlo automáticamente
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: recentRep } = await supabase
+      .from("citizen_reports")
+      .select("id,tracking_code,evidencia_foto_url,puntaje_confiabilidad,ai_classification")
+      .eq("qr_station_id", `zernio:${platform}`)
+      .eq("is_simulated_gps", true)
+      .gte("created_at", tenMinAgo)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (recentRep) {
+      const updatedScore = Math.min(100, (recentRep.puntaje_confiabilidad || 30) + 25);
+      await supabase
+        .from("citizen_reports")
+        .update({
+          latitud: pinGeo.lat,
+          longitud: pinGeo.lon,
+          precision_gps_m: 15,
+          is_simulated_gps: false,
+          zona_manglar: pinGeo.sector.nombre,
+          municipio: pinGeo.sector.municipioPrincipal,
+          sector_id: pinGeo.sector.id,
+          puntaje_confiabilidad: updatedScore,
+        })
+        .eq("id", recentRep.id);
+
+      const locUpdatedMsg =
+        `📍 *¡Ubicación GPS exacta agregada a tu reporte ${recentRep.tracking_code}!*\n\n` +
+        `• Sector: *${pinGeo.sector.nombre}*\n` +
+        `• Confiabilidad actualizada: *${updatedScore}/100 pts*\n\n` +
+        `¿Quieres enviar una foto nueva o revisar los 4 puntos del Atlántico?`;
+      if (canReply) {
+        await replyZernioConversation({
+          conversationId,
+          accountId,
+          message: locUpdatedMsg,
+          buttons: MAIN_BUTTONS,
+        }).catch(() => {});
+      }
+      return NextResponse.json({ ok: true, handled: "location_attached_to_recent", trackingCode: recentRep.tracking_code });
+    }
+
+    const locSavedMsg =
+      `📍 *¡Ubicación recibida!* (${Number(rawLat).toFixed(4)}, ${Number(rawLon).toFixed(4)})\n` +
+      `• Sector más cercano: *${pinGeo.sector.nombre}*\n\n` +
+      `Ahora envíame *1 foto* de lo que ves en el manglar (y si quieres una breve nota de texto o audio) y la guardo al instante con tu GPS real.`;
+    if (canReply) {
+      await replyZernioConversation({
+        conversationId,
+        accountId,
+        message: locSavedMsg,
+      }).catch(() => {});
+    }
+    return NextResponse.json({ ok: true, handled: "location_cached_waiting_photo", sector: pinGeo.sector.nombre });
+  }
+
+  // 2E. Bienvenida inmersiva con FOTO + 3 BOTONES INTERACTIVOS si saluda o toca Menú
   const isGreeting =
     interactiveId === "btn_menu" ||
-    /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|menu|men[uú]|ayuda|inicio|hi|hey|start|gracias|ok|si|sí)\b/i.test(
-      lowText
+    /^(hola|buenas|buenos d[ií]as|buenas tardes|buenas noches|menu|men[uú]( principal)?|ayuda|inicio|hi|hey|start|gracias|ok|si|sí)\b/i.test(
+      cleanText
     );
-  if (!imageAttachment && (isGreeting || rawText.length < 8)) {
+  if (!imageAttachment && !audioAttachment && (isGreeting || cleanText.length < 8)) {
     const welcomeMsg =
       `🌿 *¡Hola! Soy el asistente de Manglar Vivo Atlántico (CRA)*\n\n` +
       `Aquí puedes cuidar los manglares del Caribe súper fácil, sin descargar nada:\n` +
@@ -350,6 +541,30 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json({ ok: true, handled: "welcome_interactive", assistantReplyPreview: welcomeMsg });
+  }
+
+  // 2F. Transcripción automática si el usuario envía una nota de voz en WhatsApp
+  if (audioAttachment?.url) {
+    const audioDl = await downloadAttachmentBuffer(audioAttachment.url, platform).catch(() => null);
+    if (audioDl) {
+      try {
+        const audioDataUrl = `data:${audioDl.contentType};base64,${audioDl.buf.toString("base64")}`;
+        const trRes = await fetch(`${siteUrl}/api/ai/transcribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audioDataUrl, mimeType: audioDl.contentType }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (trRes.ok) {
+          const trJson = (await trRes.json()) as { text?: string };
+          if (trJson.text) {
+            rawText = rawText ? `${rawText} · [Nota de voz]: ${trJson.text}` : `[Nota de voz]: ${trJson.text}`;
+          }
+        }
+      } catch {
+        // continúa sin fallar
+      }
+    }
   }
 
   // 3. Descarga de foto adjunta + subida a Supabase Storage + auditoría IA visual
@@ -398,7 +613,10 @@ export async function POST(request: Request) {
   }
 
   // 4. Cruce territorial y cálculo de Semáforo de Confiabilidad
-  const geo = inferSectorAndCoords(rawText, msg.metadata?.latitude, msg.metadata?.longitude);
+  const cachedLoc = hasExplicitLocation ? null : popRecentLocation(anonSenderHash);
+  const effectiveLat = hasExplicitLocation ? (rawLat as number) : cachedLoc?.lat;
+  const effectiveLon = hasExplicitLocation ? (rawLon as number) : cachedLoc?.lon;
+  const geo = inferSectorAndCoords(rawText, effectiveLat, effectiveLon);
   const inferred = inferEventFromText(rawText);
   const suggestedSubId =
     aiPhotoValid && typeof aiClassification?.subtipo_sugerido === "string"
@@ -418,11 +636,6 @@ export async function POST(request: Request) {
     nearGroundTruthM: null,
     estadoValidacion: "nuevo",
   });
-
-  // Privacidad Ley 1581: NUNCA guardamos teléfono ni username real en citizen_reports (solo hash anónimo)
-  const anonSenderHash = msg.sender?.id
-    ? crypto.createHash("sha256").update(`zernio:${platform}:${msg.sender.id}`).digest("hex").slice(0, 16)
-    : "anon";
 
   const { data: inserted, error: dbErr } = await supabase
     .from("citizen_reports")

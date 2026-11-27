@@ -34,8 +34,20 @@
       text-align: center;
       gap: 32px;
     }
+    .out-brand-row {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    .out-emblem {
+      height: 124px;
+      width: 124px;
+      border-radius: 28px;
+      border: 4px solid #EDB512;
+      display: block;
+    }
     .out-logo {
-      height: 88px;
+      height: 82px;
       width: auto;
       display: block;
     }
@@ -82,16 +94,19 @@
     <div class="out-vignette" data-layout-ignore></div>
 
     <div class="out-stage">
-      <img id="out-logo" src="assets/logo_cra_blanco.png" alt="CRA Atlántico" class="out-logo" />
+      <div id="out-logo" class="out-brand-row">
+        <img src="assets/logo-manglar-vivo.png" alt="Manglar Vivo" class="out-emblem" />
+        <img src="assets/logo_cra_blanco.png" alt="CRA Atlántico" class="out-logo" />
+      </div>
       <h1 id="out-title" class="out-title">
         MANGLAR VIVO <span class="out-gold">ATLÁNTICO</span>
       </h1>
       <div id="out-rule" class="out-rule"></div>
       <p id="out-sub" class="out-sub">
-        Ciencia ciudadana real, offline y abierta para proteger los manglares del Caribe.
+        Ciencia ciudadana offline, WhatsApp interactivo, NFC y satélite NASA para proteger el Caribe.
       </p>
       <div id="out-cta" class="out-cta">manglar.arpadura.com</div>
-      <div id="out-meta" class="out-meta">CRA ATLÁNTICO · VIT ARENA 2026 · PWA + NFC + IA</div>
+      <div id="out-meta" class="out-meta">CRA ATLÁNTICO · VIT ARENA 2026 · PWA + NFC + WHATSAPP + NASA</div>
     </div>
   </div>
 
