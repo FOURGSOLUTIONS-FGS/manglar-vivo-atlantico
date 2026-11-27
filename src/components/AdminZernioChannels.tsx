@@ -86,6 +86,11 @@ export function AdminZernioChannels() {
           text: `Link de conexión generado para ${json.platform}. Ábrelo para autorizar la cuenta:`,
           url: json.authUrl,
         });
+      } else if (json.telegramCode) {
+        setFeedback({
+          ok: true,
+          text: `Código Telegram generado: ${json.telegramCode}. Agrega @${json.telegramBot || "LateScheduleBot"} como administrador de tu canal/grupo y envíale ese código por privado.`,
+        });
       } else if (json.profile) {
         setFeedback({
           ok: true,

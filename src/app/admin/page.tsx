@@ -57,6 +57,7 @@ interface AdminReportRow {
   evidencia_exif: Record<string, unknown> | null;
   perfil_reportante: string;
   school_name: string | null;
+  qr_station_id?: string | null;
   estado_validacion: string;
   attention_status: AttentionStatus;
   clasificacion_tecnica: string | null;
@@ -96,6 +97,43 @@ const LIFECYCLE_STAGES = [
   { id: "alerta_oficial_cra", label: "Alerta CRA" },
   { id: "atendido", label: "Atendido" },
 ];
+
+function resolveIntakeChannel(r: AdminReportRow): {
+  group: "pwa" | "nfc" | "qr" | "whatsapp" | "social";
+  label: string;
+  bg: string;
+  text: string;
+} {
+  const st = (r.qr_station_id || "").toLowerCase();
+  const exifPlatform =
+    typeof r.evidencia_exif?.platform === "string"
+      ? r.evidencia_exif.platform.toLowerCase()
+      : "";
+  const platform = st.startsWith("zernio:") ? st.replace("zernio:", "") : exifPlatform;
+
+  if (platform === "whatsapp") {
+    return { group: "whatsapp", label: "Canal: WhatsApp", bg: "#16794A", text: "#FFFFFF" };
+  }
+  if (platform === "telegram") {
+    return { group: "social", label: "Canal: Telegram", bg: "#0088CC", text: "#FFFFFF" };
+  }
+  if (platform === "instagram") {
+    return { group: "social", label: "Canal: Instagram DM", bg: "#C13584", text: "#FFFFFF" };
+  }
+  if (platform === "facebook") {
+    return { group: "social", label: "Canal: Facebook", bg: "#1877F2", text: "#FFFFFF" };
+  }
+  if (platform === "sms") {
+    return { group: "social", label: "Canal: SMS", bg: "#6D28D9", text: "#FFFFFF" };
+  }
+  if (st.startsWith("nfc:")) {
+    return { group: "nfc", label: "Canal: NFC Sendero", bg: "#EDB512", text: "#041A29" };
+  }
+  if (st) {
+    return { group: "qr", label: "Canal: Código QR", bg: "#005F96", text: "#FFFFFF" };
+  }
+  return { group: "pwa", label: "Canal: App PWA", bg: "#041A29", text: "#F8D86F" };
+}
 
 function getStageIndex(r: AdminReportRow): number {
   if (r.attention_status === "atendido") return 4;
@@ -151,6 +189,9 @@ function AdminCommandContent() {
   const [dispatches, setDispatches] = useState<DispatchRow[]>([]);
   const [channelStatus, setChannelStatus] = useState<ChannelStatusInfo | null>(null);
   const [levelFilter, setLevelFilter] = useState<"all" | AlertLevel>("all");
+  const [channelFilter, setChannelFilter] = useState<
+    "all" | "pwa" | "nfc" | "qr" | "whatsapp" | "social"
+  >("all");
   const [query, setQuery] = useState(initialCode);
   const [liveConnected, setLiveConnected] = useState(false);
 
@@ -289,6 +330,9 @@ function AdminCommandContent() {
   const filtered = useMemo(() => {
     return enriched
       .filter((item) => (levelFilter === "all" ? true : item.classification.level === levelFilter))
+      .filter((item) =>
+        channelFilter === "all" ? true : resolveIntakeChannel(item.report).group === channelFilter
+      )
       .filter((item) => {
         if (!query.trim()) return true;
         const q = query.trim().toLowerCase();
@@ -296,11 +340,12 @@ function AdminCommandContent() {
           item.report.tracking_code.toLowerCase().includes(q) ||
           item.report.zona_manglar.toLowerCase().includes(q) ||
           item.report.municipio.toLowerCase().includes(q) ||
+          resolveIntakeChannel(item.report).label.toLowerCase().includes(q) ||
           (item.report.descripcion_ciudadana || "").toLowerCase().includes(q)
         );
       })
       .sort((a, b) => a.classification.priorityOrder - b.classification.priorityOrder);
-  }, [enriched, levelFilter, query]);
+  }, [enriched, levelFilter, channelFilter, query]);
 
   const counts = useMemo(() => {
     return {
@@ -716,45 +761,91 @@ function AdminCommandContent() {
         {/* TAB 1: BANDEJA TOTAL Y SEGUIMIENTO */}
         {tab === "bandeja" && (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#041A29]/12 bg-white p-4">
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { id: "all", label: `Todos (${enriched.length})` },
-                  { id: "urgente", label: `Urgentes (${counts.urgente})` },
-                  { id: "alta", label: `Prioritarias (${counts.alta})` },
-                  { id: "media", label: `Revisión (${counts.media})` },
-                  { id: "verificacion", label: `828 ha (${counts.verificacion})` },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setLevelFilter(f.id as typeof levelFilter)}
-                    className={`min-h-[38px] rounded-lg px-3.5 text-xs font-black transition ${
-                      levelFilter === f.id
-                        ? "bg-[#041A29] text-white"
-                        : "bg-[#EDF2F6] text-[#041A29] hover:bg-[#041A29]/10"
-                    }`}
+            <div className="space-y-3 rounded-xl border border-[#041A29]/12 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: "all", label: `Todos (${enriched.length})` },
+                    { id: "urgente", label: `Urgentes (${counts.urgente})` },
+                    { id: "alta", label: `Prioritarias (${counts.alta})` },
+                    { id: "media", label: `Revisión (${counts.media})` },
+                    { id: "verificacion", label: `828 ha (${counts.verificacion})` },
+                  ].map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setLevelFilter(f.id as typeof levelFilter)}
+                      className={`min-h-[38px] rounded-lg px-3.5 text-xs font-black transition ${
+                        levelFilter === f.id
+                          ? "bg-[#041A29] text-white"
+                          : "bg-[#EDF2F6] text-[#041A29] hover:bg-[#041A29]/10"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    aria-label="Filtrar por canal de entrada"
+                    value={channelFilter}
+                    onChange={(e) => setChannelFilter(e.target.value as typeof channelFilter)}
+                    className="min-h-[40px] rounded-lg border border-[#041A29]/15 bg-[#EDF2F6]/80 px-3 text-xs font-black text-[#041A29]"
                   >
-                    {f.label}
-                  </button>
-                ))}
+                    <option value="all">Todos los canales</option>
+                    <option value="whatsapp">WhatsApp (Zernio)</option>
+                    <option value="social">Telegram / IG / FB / SMS</option>
+                    <option value="nfc">Estación NFC</option>
+                    <option value="qr">Código QR</option>
+                    <option value="pwa">App Web / PWA</option>
+                  </select>
+
+                  <div className="relative min-w-[210px] flex-1 sm:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#041A29]/45" />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Buscar código, canal o sector..."
+                      className="min-h-[40px] w-full rounded-lg border border-[#041A29]/15 bg-[#EDF2F6]/60 pl-9 pr-3 text-xs font-bold text-[#041A29]"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="relative min-w-[240px] flex-1 sm:max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#041A29]/45" />
+              {/* Barra de correo destino específico para enviar CUALQUIER reporte con 1 clic */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#041A29]/10 pt-3 text-xs">
+                <span className="inline-flex items-center gap-1.5 font-bold text-[#041A29]/75">
+                  <Mail className="h-4 w-4 text-[#005F96]" />
+                  Correo destino para enviar cualquier reporte de esta lista:
+                </span>
                 <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar por código, sector o municipio..."
-                  className="min-h-[40px] w-full rounded-lg border border-[#041A29]/15 bg-[#EDF2F6]/60 pl-9 pr-3 text-xs font-bold text-[#041A29]"
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="ejemplo@entidad.gov.co"
+                  className="min-h-[38px] w-full max-w-xs rounded-lg border border-[#005F96]/30 bg-[#EDF2F6]/60 px-3 font-mono text-xs font-bold text-[#041A29]"
                 />
               </div>
+
+              {sendFeedback && (
+                <div
+                  className={`rounded-lg border px-3.5 py-2.5 text-xs font-bold ${
+                    sendFeedback.ok
+                      ? "border-[#16794A]/35 bg-[#16794A]/10 text-[#115E39]"
+                      : "border-[#C84023]/35 bg-[#C84023]/10 text-[#9F2D15]"
+                  }`}
+                >
+                  {sendFeedback.message}
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
               {filtered.map(({ report: r, classification: cls, aiValid, nearbyCount }) => {
                 const stageIdx = getStageIndex(r);
+                const intake = resolveIntakeChannel(r);
                 const highlighted =
                   initialCode &&
                   r.tracking_code.toUpperCase() === initialCode.trim().toUpperCase();
@@ -822,6 +913,12 @@ function AdminCommandContent() {
                               style={{ backgroundColor: cls.colorHex }}
                             >
                               {cls.badgeLabel}
+                            </span>
+                            <span
+                              className="rounded px-2 py-0.5 text-[10px] font-black"
+                              style={{ backgroundColor: intake.bg, color: intake.text }}
+                            >
+                              {intake.label}
                             </span>
                             <span className="font-mono text-xs font-bold text-[#005F96]">
                               {r.tracking_code}
@@ -909,17 +1006,12 @@ function AdminCommandContent() {
                           </button>
                           <button
                             type="button"
-                            disabled={!adminUnlocked}
-                            onClick={() => {
-                              setTab("correos");
-                              if (testEmail.trim()) {
-                                handleSendEmail(undefined, r.id);
-                              }
-                            }}
-                            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-[#041A29]/20 bg-white px-2.5 text-[11px] font-bold text-[#041A29] hover:border-[#005F96] disabled:opacity-45"
+                            disabled={!adminUnlocked || sendingEmail}
+                            onClick={() => handleSendEmail(undefined, r.id)}
+                            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-[#005F96]/35 bg-[#EDF2F6] px-2.5 text-[11px] font-black text-[#041A29] transition hover:bg-[#005F96] hover:text-white disabled:opacity-45"
                           >
-                            <Mail className="h-3.5 w-3.5 text-[#005F96]" />
-                            Correo
+                            <Mail className="h-3.5 w-3.5" />
+                            {sendingEmail ? "Enviando..." : "Enviar correo"}
                           </button>
                         </div>
                       </div>

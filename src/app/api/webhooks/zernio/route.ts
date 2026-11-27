@@ -377,24 +377,33 @@ export async function POST(request: Request) {
   }
 
   // 6. Responder automáticamente al ciudadano por el mismo canal Zernio (WhatsApp / Telegram / IG / SMS)
+  const aiSaw =
+    typeof aiClassification?.que_muestra_la_foto === "string"
+      ? aiClassification.que_muestra_la_foto
+      : null;
+
+  const verdictLine =
+    aiPhotoValid === false
+      ? `⚠️ Auditoría visual IA: detectamos "${aiSaw || "una escena fuera del manglar"}" (${String(
+          aiClassification?.motivo_rechazo || "no corresponde a captura en campo"
+        )}). Quedó con 0/25 en foto — envíanos una foto real al aire libre del manglar para validarlo.`
+      : aiPhotoValid === true
+      ? `✅ Auditoría visual IA confirmada (${reliability.score}/100 pts): "${
+          aiSaw || subMeta?.label || "evidencia ambiental válida"
+        }".`
+      : `📋 Recibido para validación de mentores CRA (${reliability.score}/100 pts).`;
+
+  const replyMessage =
+    `🌿 *Manglar Vivo Atlántico · Asistente CRA*\n` +
+    `• Código: *${trackingCode}* (vía ${platform.toUpperCase()})\n` +
+    `• Sector: ${geo.sector.nombre}${geo.isSimulatedGps ? " (ubicación estimada por texto)" : " (GPS verificado)"}\n` +
+    `• ${verdictLine}\n\n` +
+    `🔎 Sigue la atención oficial de la CRA:\n${siteUrl}/escuelas?code=${trackingCode}\n\n` +
+    `🤝 *¡Invita a tu comunidad y colegio!*\n` +
+    `Explora las 4 estaciones NFC del Atlántico y colecciona tu Pasaporte Costero: ${siteUrl}/p/3\n` +
+    `Escribe *"estado ${trackingCode}"* cuando quieras ver el avance.`;
+
   if (conversationId && accountId) {
-    const verdictLine =
-      aiPhotoValid === false
-        ? `⚠️ Filtro IA: la foto adjunta no parece un manglar en campo (${String(
-            aiClassification?.motivo_rechazo || "interior o pantalla"
-          )}). Quedó con 0/25 en foto para revisión manual.`
-        : aiPhotoValid === true
-        ? `✅ Evidencia ambiental confirmada por IA (${reliability.score}/100 pts).`
-        : `📋 Recibido para validación de mentores CRA (${reliability.score}/100 pts).`;
-
-    const replyMessage =
-      `🌿 *Reporte registrado en Manglar Vivo Atlántico*\n` +
-      `• Código: *${trackingCode}*\n` +
-      `• Sector: ${geo.sector.nombre}${geo.isSimulatedGps ? " (ubicación aproximada por texto)" : " (GPS real)"}\n` +
-      `• ${verdictLine}\n\n` +
-      `Sigue la atención de la CRA aquí:\n${siteUrl}/escuelas?code=${trackingCode}\n\n` +
-      `Escribe "estado ${trackingCode}" cuando quieras consultar el avance.`;
-
     await replyZernioConversation({ conversationId, accountId, message: replyMessage }).catch(() => {});
   }
 
@@ -402,8 +411,11 @@ export async function POST(request: Request) {
     ok: true,
     trackingCode,
     platform,
+    channelLabel: `Canal: ${platform.toUpperCase()}`,
     sector: geo.sector.nombre,
     aiPhotoValid,
+    aiSaw,
     reliabilityScore: reliability.score,
+    assistantReplyPreview: replyMessage,
   });
 }

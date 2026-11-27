@@ -452,10 +452,17 @@ export function AdminAnalytics({
   type Ev = { ts: number; color: string; title: string; detail: string };
   const events: Ev[] = [];
   scoped.forEach((x) => {
+    const chLabel = (x.r.qr_station_id || "").startsWith("zernio:")
+      ? (x.r.qr_station_id || "").replace("zernio:", "").toUpperCase()
+      : (x.r.qr_station_id || "").startsWith("nfc:")
+      ? "NFC"
+      : x.r.qr_station_id
+      ? "QR"
+      : "PWA";
     events.push({
       ts: x.ts,
       color: LEVEL_META[x.cls.level].color,
-      title: `${x.r.tracking_code} · Nuevo reporte`,
+      title: `${x.r.tracking_code} · Nuevo reporte (${chLabel})`,
       detail: `${x.subtypeLabel} · ${x.r.municipio}`,
     });
     (x.r.validations || []).forEach((v) => {

@@ -133,7 +133,9 @@ export async function POST(request: Request) {
         ok: true,
         platform,
         profileId,
-        authUrl: linkRes.data.authUrl || linkRes.data.url,
+        authUrl: linkRes.data.authUrl || linkRes.data.url || null,
+        telegramCode: (linkRes.data as { code?: string }).code || null,
+        telegramBot: (linkRes.data as { botUsername?: string }).botUsername || null,
         state: linkRes.data.state,
       });
     }
