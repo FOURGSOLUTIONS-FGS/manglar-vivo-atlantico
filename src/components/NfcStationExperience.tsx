@@ -4,13 +4,18 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
+  Award,
   Camera,
+  Check,
   CheckCircle2,
   Compass,
   Headphones,
+  Lock,
   MapPin,
+  Navigation,
   Radio,
   Satellite,
+  Sparkles,
   Square,
   Trees,
   Volume2,
@@ -21,6 +26,14 @@ import {
   FACTOR_DOMAINS,
   type CraSectorInfo,
 } from "@/lib/cra-domain";
+import {
+  TRAIL_STATIONS,
+  distanceKm,
+  getExplorerRank,
+  stampStationInPassport,
+  togglePassportChallenge,
+  type ExplorerPassportState,
+} from "@/lib/explorer-passport";
 
 export interface StationMeta {
   id: string;
@@ -69,6 +82,31 @@ export function NfcStationExperience({
   const [audioCurrentSec, setAudioCurrentSec] = useState(0);
   const [audioDurationSec, setAudioDurationSec] = useState(24);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [passport, setPassport] = useState<ExplorerPassportState>({
+    visited: {},
+    checkedChallenges: [],
+  });
+  const [justUnlockedStamp, setJustUnlockedStamp] = useState(false);
+
+  const normalizedCode = station.shortCode.replace(/^0+/, "");
+  const currentTrail =
+    TRAIL_STATIONS.find((t) => t.shortCode === normalizedCode) ?? TRAIL_STATIONS[2];
+
+  useEffect(() => {
+    const { state, justUnlocked } = stampStationInPassport(station.shortCode);
+    setPassport(state);
+    setJustUnlockedStamp(justUnlocked);
+  }, [station.shortCode]);
+
+  const handleToggleChallenge = (challengeId: string) => {
+    setPassport(togglePassportChallenge(challengeId));
+  };
+
+  const visitedCount = Object.keys(passport.visited).length;
+  const rank = getExplorerRank(visitedCount);
+  const completedHereCount = currentTrail.challenges.filter((c) =>
+    passport.checkedChallenges.includes(c.id)
+  ).length;
 
   useEffect(() => {
     const el = audioRef.current;
@@ -371,6 +409,99 @@ export function NfcStationExperience({
           )}
         </section>
 
+        {/* MISIÓN DE EXPLORACIÓN EN EL LUGAR + SELLO DEL PASAPORTE */}
+        <section
+          data-nfc-in
+          className="overflow-hidden rounded-xl border border-[#EDB512]/35 bg-[#082438]"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/12 bg-[#041A29]/60 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EDB512] text-[#041A29]">
+                <Award className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="font-display text-base font-black text-white sm:text-lg">
+                  {justUnlockedStamp
+                    ? `¡Sello #${station.shortCode} desbloqueado! ${currentTrail.badgeTitle}`
+                    : `Sello #${station.shortCode} activo · ${currentTrail.badgeTitle}`}
+                </p>
+                <p className="text-xs text-[#F8D86F]">
+                  Pasaporte Costero: {visitedCount}/4 estaciones · Rango: {rank.title}
+                </p>
+              </div>
+            </div>
+
+            <span className="rounded-lg border border-white/15 bg-[#082438] px-3 py-1.5 font-mono text-xs font-black text-[#86EFAC]">
+              {completedHereCount}/{currentTrail.challenges.length} hallazgos aquí
+            </span>
+          </div>
+
+          <div className="space-y-4 p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-lg font-black text-white">
+                Reto de exploración en {station.municipio}: ¿qué puedes descubrir hoy?
+              </h2>
+              <span className="text-xs text-white/60">Toca cada pista cuando la encuentres</span>
+            </div>
+
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              {currentTrail.challenges.map((ch) => {
+                const done = passport.checkedChallenges.includes(ch.id);
+                return (
+                  <div
+                    key={ch.id}
+                    className={`flex flex-col justify-between rounded-xl border p-4 transition ${
+                      done
+                        ? "border-[#22C55E]/60 bg-[#16794A]/20"
+                        : "border-white/12 bg-[#041A29]/65"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleToggleChallenge(ch.id)}
+                      className="flex w-full items-start gap-2.5 text-left"
+                    >
+                      <span
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+                          done
+                            ? "border-[#22C55E] bg-[#22C55E] text-[#041A29]"
+                            : "border-white/35 bg-transparent text-transparent"
+                        }`}
+                      >
+                        <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-black leading-snug text-white">
+                          {ch.label}
+                        </span>
+                        <span className="mt-1 block text-xs leading-relaxed text-white/65">
+                          {ch.hint}
+                        </span>
+                      </span>
+                    </button>
+
+                    <Link
+                      href={`${reportBaseHref}&dominio=${ch.suggestedDomain}`}
+                      className="mt-3 inline-flex items-center gap-1 text-[11px] font-black text-[#F8D86F] hover:underline"
+                    >
+                      <Camera className="h-3.5 w-3.5" />
+                      Fotografiar esto
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="flex items-start gap-2 rounded-lg bg-[#041A29]/60 px-3.5 py-2.5 text-xs text-white/80">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#EDB512]" />
+              <span>
+                <strong className="text-[#F8D86F]">Dato secreto de este tramo:</strong>{" "}
+                {currentTrail.secretFact}
+              </span>
+            </p>
+          </div>
+        </section>
+
         {/* ATAJOS DIRECTOS POR FACTOR (1 TOQUE DESDE EL SENDERO) */}
         <section data-nfc-in>
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
@@ -490,6 +621,115 @@ export function NfcStationExperience({
               <Camera className="h-4 w-4" />
               Tomar foto y enviar evidencia
             </Link>
+          </div>
+        </section>
+
+        {/* RUTA DE EXPLORACIÓN COSTERO-TURÍSTICA: LOS 4 PUNTOS NFC DEL ATLÁNTICO */}
+        <section data-nfc-in className="space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 className="font-display text-xl font-black text-white sm:text-2xl">
+                Pasaporte del Manglar: explora los 4 puntos del Atlántico
+              </h2>
+              <p className="mt-1 text-xs text-white/70">
+                {rank.nextGoal} Sin crear cuenta — tus sellos se guardan en este celular.
+              </p>
+            </div>
+            <Link href="/turista" className="text-xs font-bold text-[#F8D86F] hover:underline">
+              Ver mapa QR/NFC →
+            </Link>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {TRAIL_STATIONS.map((stop) => {
+              const isCurrent = stop.shortCode === normalizedCode;
+              const isUnlocked = Boolean(passport.visited[stop.shortCode]);
+              const km = distanceKm(station.lat, station.lon, stop.lat, stop.lon);
+              return (
+                <div
+                  key={stop.stationId}
+                  className={`flex flex-col justify-between overflow-hidden rounded-xl border transition ${
+                    isCurrent
+                      ? "border-[#EDB512] bg-[#005F96]/35"
+                      : isUnlocked
+                      ? "border-[#22C55E]/45 bg-[#082438]"
+                      : "border-white/12 bg-[#082438]/75"
+                  }`}
+                >
+                  <div className="relative h-28 w-full overflow-hidden bg-[#041A29]">
+                    <img
+                      src={stop.heroPhoto}
+                      alt={stop.shortName}
+                      className={`h-full w-full object-cover ${
+                        isUnlocked || isCurrent ? "" : "opacity-65 grayscale-[35%]"
+                      }`}
+                    />
+                    <span
+                      className={`absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] font-black ${
+                        isCurrent
+                          ? "bg-[#EDB512] text-[#041A29]"
+                          : isUnlocked
+                          ? "bg-[#16794A] text-white"
+                          : "bg-[#041A29]/85 text-white/80"
+                      }`}
+                    >
+                      {isCurrent ? (
+                        "ESTÁS AQUÍ"
+                      ) : isUnlocked ? (
+                        <>
+                          <CheckCircle2 className="h-3 w-3" />
+                          SELLO 0{stop.shortCode}
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-3 w-3" />
+                          PUNTO 0{stop.shortCode}
+                        </>
+                      )}
+                    </span>
+                    {!isCurrent && (
+                      <span className="absolute bottom-2 right-2 rounded bg-[#041A29]/85 px-2 py-0.5 font-mono text-[10px] font-bold text-[#F8D86F]">
+                        a {km} km
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-1 flex-col justify-between p-3.5">
+                    <div>
+                      <p className="font-display text-sm font-black text-white">
+                        {stop.shortName}
+                      </p>
+                      <p className="text-[11px] font-bold text-[#F8D86F]">{stop.badgeTitle}</p>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-white/70">
+                        {stop.teaser}
+                      </p>
+                    </div>
+
+                    {!isCurrent && (
+                      <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-2.5 text-[11px] font-black">
+                        <Link
+                          href={`/p/${stop.shortCode}`}
+                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/10 py-2 text-white transition hover:bg-[#EDB512] hover:text-[#041A29]"
+                        >
+                          Explorar
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lon}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/20 px-2.5 py-2 text-[#F8D86F] transition hover:border-[#EDB512]"
+                          aria-label={`Cómo llegar a ${stop.shortName}`}
+                        >
+                          <Navigation className="h-3 w-3" />
+                          Ir
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 

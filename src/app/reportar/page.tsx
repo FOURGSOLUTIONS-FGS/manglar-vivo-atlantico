@@ -139,6 +139,7 @@ function ReportarContent() {
 
   const [datasetSamples, setDatasetSamples] = useState<DatasetSample[]>([]);
   const [showDatasetBank, setShowDatasetBank] = useState(false);
+  const [datasetFilter, setDatasetFilter] = useState<string>("todos");
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<Record<string, unknown> | null>(null);
@@ -1203,14 +1204,43 @@ function ReportarContent() {
                 <div className="rounded-xl border border-[#041A29]/15 bg-[#EDF2F6]/70 p-4">
                   <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-xs font-black text-[#041A29]">
-                      Banco de fotografías reales de campo (incluye prueba negativa de interior para demostrar el filtro anti-falsos)
+                      Banco curado de campo (100 % validado con IA + controles anti-fraude de PC/oficina)
                     </p>
                     <span className="font-mono text-[11px] text-[#041A29]/60">
-                      Wikimedia Commons · Licencia abierta
+                      {datasetSamples.length} fotos · Licencia abierta
                     </span>
                   </div>
+
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {[
+                      { id: "todos", label: "Todas" },
+                      { id: "cobertura_suelo", label: "Cobertura" },
+                      { id: "agua_dosel", label: "Agua y Dosel" },
+                      { id: "contaminacion", label: "Contaminación" },
+                      { id: "fauna_verificacion", label: "Fauna / 828 ha" },
+                      { id: "invalida", label: "Anti-fraude (PC)" },
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setDatasetFilter(f.id)}
+                        className={`min-h-[32px] rounded-md px-2.5 text-[11px] font-black transition ${
+                          datasetFilter === f.id
+                            ? f.id === "invalida"
+                              ? "bg-[#C84023] text-white"
+                              : "bg-[#041A29] text-white"
+                            : "bg-white text-[#041A29]/75 hover:text-[#041A29]"
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-                    {datasetSamples.map((sample) => {
+                    {datasetSamples
+                      .filter((s) => datasetFilter === "todos" || s.domain === datasetFilter)
+                      .map((sample) => {
                       const isNegative = sample.domain === "invalida";
                       return (
                         <button
@@ -1227,9 +1257,13 @@ function ReportarContent() {
                               alt={sample.label}
                               className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                             />
-                            {isNegative && (
+                            {isNegative ? (
                               <span className="absolute left-1.5 top-1.5 rounded bg-[#C84023] px-1.5 py-0.5 font-mono text-[9px] font-black text-white">
                                 NO VÁLIDA
+                              </span>
+                            ) : (
+                              <span className="absolute left-1.5 top-1.5 rounded bg-[#16794A]/90 px-1.5 py-0.5 font-mono text-[9px] font-black text-white">
+                                ✓ IA 100%
                               </span>
                             )}
                           </div>

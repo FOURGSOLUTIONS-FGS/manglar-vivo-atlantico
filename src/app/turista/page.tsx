@@ -3,8 +3,25 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { ArrowRight, Camera, Check, Copy, MapPin, Smartphone } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  Camera,
+  Check,
+  CheckCircle2,
+  Copy,
+  Lock,
+  MapPin,
+  Navigation,
+  Smartphone,
+} from "lucide-react";
 import { QR_STATIONS } from "@/lib/cra-domain";
+import {
+  TRAIL_STATIONS,
+  getExplorerRank,
+  readPassport,
+  type ExplorerPassportState,
+} from "@/lib/explorer-passport";
 
 const SHORT_NFC_CODE: Record<string, string> = {
   "mallorquin-sendero-1": "1",
@@ -19,6 +36,17 @@ export default function TuristaPage() {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [nfcMsg, setNfcMsg] = useState<string | null>(null);
   const [nfcWriting, setNfcWriting] = useState(false);
+  const [passport, setPassport] = useState<ExplorerPassportState>({
+    visited: {},
+    checkedChallenges: [],
+  });
+
+  useEffect(() => {
+    setPassport(readPassport());
+  }, []);
+
+  const visitedCount = Object.keys(passport.visited).length;
+  const rank = getExplorerRank(visitedCount);
 
   const station = QR_STATIONS.find((s) => s.id === selectedId) ?? QR_STATIONS[0];
   const shortCode = SHORT_NFC_CODE[station.id] || "1";
@@ -210,6 +238,104 @@ export default function TuristaPage() {
           </p>
         </div>
       </div>
+
+      {/* PASAPORTE COSTERO DEL ATLÁNTICO (GAMIFICACIÓN DE EXPLORACIÓN) */}
+      <section className="mx-auto max-w-[1440px] px-5 pb-14 lg:px-10">
+        <div className="overflow-hidden rounded-2xl border border-[#041A29]/12 bg-[#041A29] text-white">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/12 px-6 py-6 sm:px-8">
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#EDB512] text-[#041A29]">
+                <Award className="h-6 w-6" />
+              </span>
+              <div>
+                <h2 className="font-display text-2xl font-black text-white">
+                  Pasaporte Costero del Manglar ({visitedCount}/4 sellos)
+                </h2>
+                <p className="text-xs text-[#F8D86F]">
+                  Rango actual: {rank.title} · {rank.nextGoal}
+                </p>
+              </div>
+            </div>
+            <span className="rounded-lg border border-white/15 bg-[#082438] px-3.5 py-2 font-mono text-xs font-black text-[#86EFAC]">
+              {passport.checkedChallenges.length}/12 hallazgos de campo
+            </span>
+          </div>
+
+          <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4 sm:p-8">
+            {TRAIL_STATIONS.map((stop) => {
+              const unlocked = Boolean(passport.visited[stop.shortCode]);
+              return (
+                <div
+                  key={stop.stationId}
+                  className={`flex flex-col justify-between overflow-hidden rounded-xl border ${
+                    unlocked
+                      ? "border-[#22C55E]/50 bg-[#082438]"
+                      : "border-white/12 bg-[#082438]/75"
+                  }`}
+                >
+                  <div className="relative h-32 w-full overflow-hidden bg-[#041A29]">
+                    <img
+                      src={stop.heroPhoto}
+                      alt={stop.shortName}
+                      className={`h-full w-full object-cover ${
+                        unlocked ? "" : "opacity-65 grayscale-[30%]"
+                      }`}
+                    />
+                    <span
+                      className={`absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[10px] font-black ${
+                        unlocked
+                          ? "bg-[#16794A] text-white"
+                          : "bg-[#041A29]/85 text-white/80"
+                      }`}
+                    >
+                      {unlocked ? (
+                        <>
+                          <CheckCircle2 className="h-3 w-3" />
+                          SELLO 0{stop.shortCode}
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-3 w-3" />
+                          PUNTO 0{stop.shortCode}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex flex-1 flex-col justify-between p-4">
+                    <div>
+                      <p className="font-display text-base font-black text-white">
+                        {stop.shortName}
+                      </p>
+                      <p className="text-xs font-bold text-[#F8D86F]">{stop.badgeTitle}</p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-white/70">
+                        {stop.teaser}
+                      </p>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                      <Link
+                        href={`/p/${stop.shortCode}`}
+                        className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#EDB512] px-3 text-xs font-black text-[#041A29] transition hover:bg-[#F8D86F]"
+                      >
+                        Explorar punto
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lon}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-white/20 px-3 text-xs font-black text-[#F8D86F] transition hover:border-[#EDB512]"
+                        aria-label={`Cómo llegar a ${stop.shortName}`}
+                      >
+                        <Navigation className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -185,7 +185,7 @@ ${
   hasImage
     ? `Describe primero objetivamente QUÉ se ve realmente en los píxeles de la foto ("que_muestra_la_foto"), SIN dejarte influenciar por lo que seleccionó el ciudadano.
 Evalúa si la foto corresponde realmente a un entorno natural/costero/humedal/manglar/cuerpo de agua/fauna silvestre o amenaza ambiental real al aire libre (tala, relleno, obra en humedal, quema, agua estancada, árboles secos, erosión, basura en costa/agua, vertimiento, mancha de aceite, fauna).
-SI la foto muestra un computador, laptop, monitor, pantalla de PC/TV/celular (INCLUSO si en la pantalla se ve una foto de manglar o una web), teclado, mouse, escritorio, oficina, sala, habitación, puerta, persona/selfie/retrato en primer plano, mascota doméstica, comida, vehículo en calle urbana sin relación o cualquier escena que NO sea una fotografía tomada directamente al aire libre en un entorno ambiental/costero:
+SI la foto (o CUALQUIERA de las fotos adjuntas cuando el usuario sube 2 o 3) muestra un computador, laptop, monitor, pantalla de PC/TV/celular (INCLUSO si en la pantalla se ve una foto de manglar o una web), teclado, mouse, escritorio, oficina, sala, habitación, puerta, persona/selfie/retrato en primer plano, mascota doméstica, comida, vehículo en calle urbana sin relación o cualquier escena que NO sea una fotografía tomada directamente al aire libre en un entorno ambiental/costero:
 - Pon "es_evidencia_valida": false
 - Pon "tipo_evento_sugerido": "invalida"
 - Pon "subtipo_sugerido": null

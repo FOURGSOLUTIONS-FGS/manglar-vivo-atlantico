@@ -110,10 +110,19 @@
   {
     "id": "control_oficina",
     "domain": "invalida",
-    "label": "Prueba negativa: foto de interior",
+    "label": "Anti-fraude: escritorio / laptop",
     "src": "/dataset/control_oficina.jpg",
     "bytes": 73523,
     "sourceTitle": "Desktop with laptop and calculator (Unsplash).jpg",
+    "license": "CC0"
+  },
+  {
+    "id": "control_pantalla_pc",
+    "domain": "invalida",
+    "label": "Anti-fraude: manglar en pantalla PC",
+    "src": "/dataset/control_pantalla_pc.jpg",
+    "bytes": 120000,
+    "sourceTitle": "Adversarial screen-capture test (laptop displaying mangrove webpage)",
     "license": "CC0"
   }
 ]
