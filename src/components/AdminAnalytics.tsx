@@ -4,19 +4,24 @@ import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import {
   Activity,
+  ArrowRight,
   CheckCircle2,
   Clock,
+  Compass,
   Download,
+  Flame,
+  Layers,
   Mail,
   Radio,
   ShieldCheck,
+  Target,
   TrendingDown,
   TrendingUp,
   Users,
 } from "lucide-react";
 import { classifyAlert } from "@/core/alerts/classifier";
 import type { AlertLevel } from "@/core/alerts/types";
-import { CRA_SECTORS, FACTOR_DOMAINS, REPORTER_PROFILES } from "@/lib/cra-domain";
+import { CRA_GLOBAL_METRICS, CRA_SECTORS, FACTOR_DOMAINS, REPORTER_PROFILES } from "@/lib/cra-domain";
 import type { MapReportItem } from "@/components/CraMap";
 
 const CraMap = dynamic(() => import("@/components/CraMap"), {
@@ -99,17 +104,33 @@ function fmtHours(h: number): string {
   return `${(h / 24).toFixed(1)} d`;
 }
 
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function AdminAnalytics({
   reports,
   dispatches,
   liveConnected,
+  onJumpToBandeja,
+  onFocusSector,
 }: {
   reports: AnalyticsReport[];
   dispatches: AnalyticsDispatch[];
   liveConnected: boolean;
+  onJumpToBandeja?: (opts: { query?: string; level?: "all" | AlertLevel }) => void;
+  onFocusSector?: (sectorId: number) => void;
 }) {
   const [range, setRange] = useState<7 | 30 | 90>(90);
   const [sectorFilter, setSectorFilter] = useState<number | "all">("all");
+  const [deployedSectors, setDeployedSectors] = useState<number[]>([3, 1]);
 
   const now = useMemo(() => Date.now(), [reports, dispatches, range]);
 
@@ -226,6 +247,145 @@ export function AdminAnalytics({
   });
   const maxSector = Math.max(1, ...sectorStats.map((x) => x.count));
 
+  // MOTOR DE DECISIONES INTELIGENTES (Índice de Presión Operativa 0-100 por sector)
+  const sectorDecisions = useMemo(() => {
+    return CRA_SECTORS.map((s) => {
+      const list = current.filter((x) => x.r.sector_id === s.id);
+      const openUrgent = list.filter(
+        (x) => x.cls.level === "urgente" && x.r.attention_status !== "atendido"
+      ).length;
+      const openHigh = list.filter(
+        (x) => x.cls.level === "alta" && x.r.attention_status !== "atendido"
+      ).length;
+      const openCritical = openUrgent + openHigh;
+      const co2e = Math.round(s.carbonoTc * CRA_GLOBAL_METRICS.co2eFactor);
+      const pressureScore = Math.min(
+        100,
+        Math.round(
+          openUrgent * 18 +
+            openHigh * 9 +
+            s.riesgoMedio * 65 +
+            Math.min(18, (s.porRevisarHa / 460) * 18)
+        )
+      );
+      let actionTitle = `Reforzar monitoreo ciudadano en ${s.municipioPrincipal}`;
+      let actionWhy = `${list.length} reportes en ${range}d · ${s.porRevisarHa} ha por verificar en campo.`;
+      let targetLevel: "all" | AlertLevel = "all";
+
+      if (openUrgent > 0) {
+        actionTitle = `Despachar cuadrilla urgente a ${s.municipioPrincipal}`;
+        actionWhy = `${openUrgent} alertas Nivel 1 abiertas + riesgo satelital ${s.riesgoMedio.toFixed(
+          3
+        )} (${co2e.toLocaleString("es-CO")} t CO₂e en juego).`;
+        targetLevel = "urgente";
+      } else if (s.porRevisarHa > 200) {
+        actionTitle = `Activar jornada escolar 828 ha en ${s.municipioPrincipal}`;
+        actionWhy = `Concentra ${s.porRevisarHa} ha sin confirmar en terreno (mayor rezago del Atlántico).`;
+        targetLevel = "verificacion";
+      } else if (openHigh > 0) {
+        actionTitle = `Validar alertas prioritarias en ${s.municipioPrincipal}`;
+        actionWhy = `${openHigh} alertas Nivel 2 pendientes de aval técnico y verificación en sitio.`;
+        targetLevel = "alta";
+      }
+
+      return {
+        sector: s,
+        total: list.length,
+        openUrgent,
+        openHigh,
+        openCritical,
+        co2e,
+        pressureScore,
+        actionTitle,
+        actionWhy,
+        targetLevel,
+      };
+    }).sort((a, b) => b.pressureScore - a.pressureScore);
+  }, [current, range]);
+
+  // DETECCIÓN DE FOCOS ACTIVOS CORROBORADOS (Agrupación espacial <= 1.8 km)
+  const corroboratedClusters = useMemo(() => {
+    const used = new Set<string>();
+    const clusters: Array<{
+      id: string;
+      municipio: string;
+      sectorId: number;
+      count: number;
+      urgentCount: number;
+      avgScore: number;
+      topEvent: string;
+      sampleCode: string;
+      latestTs: number;
+    }> = [];
+
+    for (const item of current) {
+      if (used.has(item.r.id)) continue;
+      const group = current.filter((other) => {
+        if (used.has(other.r.id)) return false;
+        return (
+          haversineKm(
+            Number(item.r.latitud),
+            Number(item.r.longitud),
+            Number(other.r.latitud),
+            Number(other.r.longitud)
+          ) <= 1.8
+        );
+      });
+      if (group.length >= 2) {
+        group.forEach((g) => used.add(g.r.id));
+        const eventCounts = new Map<string, number>();
+        group.forEach((g) =>
+          eventCounts.set(g.subtypeLabel, (eventCounts.get(g.subtypeLabel) || 0) + 1)
+        );
+        const topEvent =
+          Array.from(eventCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+          item.subtypeLabel;
+        clusters.push({
+          id: `cluster-${item.r.id}`,
+          municipio: item.r.municipio,
+          sectorId: item.r.sector_id,
+          count: group.length,
+          urgentCount: group.filter((g) => g.cls.level === "urgente" || g.cls.level === "alta")
+            .length,
+          avgScore: Math.round(
+            group.reduce((s, g) => s + g.r.puntaje_confiabilidad, 0) / group.length
+          ),
+          topEvent,
+          sampleCode: group[0].r.tracking_code,
+          latestTs: Math.max(...group.map((g) => g.ts)),
+        });
+      }
+    }
+    return clusters.sort((a, b) => b.urgentCount - a.urgentCount || b.count - a.count).slice(0, 4);
+  }, [current]);
+
+  // SIMULADOR TÁCTICO DE DESPLIEGUE DE CUADRILLAS
+  const toggleDeploySector = (id: number) => {
+    setDeployedSectors((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+  const totalOpenCriticalAll = sectorDecisions.reduce((s, d) => s + d.openCritical, 0);
+  const simCoveredCritical = sectorDecisions
+    .filter((d) => deployedSectors.includes(d.sector.id))
+    .reduce((s, d) => s + d.openCritical, 0);
+  const simCoveredPct =
+    totalOpenCriticalAll > 0 ? Math.round((simCoveredCritical / totalOpenCriticalAll) * 100) : 100;
+  const simProtectedHa = CRA_SECTORS.filter((s) => deployedSectors.includes(s.id)).reduce(
+    (sum, s) => sum + s.referenciaHa,
+    0
+  );
+  const simPorRevisarHa = CRA_SECTORS.filter((s) => deployedSectors.includes(s.id)).reduce(
+    (sum, s) => sum + s.porRevisarHa,
+    0
+  );
+  const simCo2e = Math.round(
+    CRA_SECTORS.filter((s) => deployedSectors.includes(s.id)).reduce(
+      (sum, s) => sum + s.carbonoTc,
+      0
+    ) * CRA_GLOBAL_METRICS.co2eFactor
+  );
+
   // Embudo de ciclo de vida
   const funnel = [
     { label: "Recibidos", value: total },
@@ -341,14 +501,14 @@ export function AdminAnalytics({
   const barW = Math.max(4, slot * 0.66);
 
   return (
-    <div className="rounded-2xl border border-[#041A29] bg-[#041A29] px-5 pb-10 pt-7 text-white lg:px-8">
+    <div className="space-y-6 text-white">
       {/* Barra de control */}
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/12 pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/12 pb-5">
         <div>
           <h2 className="font-display text-2xl font-black text-white sm:text-3xl">
-            Panorama histórico del manglar
+            Inteligencia de decisiones e históricos ({range} días)
           </h2>
-          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-white/70">
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/70">
             <span className="inline-flex items-center gap-1.5 font-bold text-[#86EFAC]">
               <Radio className="h-3.5 w-3.5" />
               {liveConnected ? "Datos en vivo (Supabase Realtime)" : "Conectando datos en vivo..."}
@@ -397,6 +557,215 @@ export function AdminAnalytics({
           </a>
         </div>
       </div>
+
+      {/* 1. MOTOR DE DECISIONES INTELIGENTES — TOP 3 ACCIONES PRIORITARIAS HOY */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white sm:text-xl">
+            <Target className="h-5 w-5 text-[#EDB512]" />
+            Decisiones recomendadas para hoy (Índice de Presión Operativa)
+          </h3>
+          <span className="text-xs text-white/60">
+            Cruce automático: alertas abiertas + riesgo satelital 2026 + rezago 828 ha
+          </span>
+        </div>
+
+        <div className="grid gap-3.5 lg:grid-cols-3">
+          {sectorDecisions.slice(0, 3).map((dec, idx) => {
+            const isCritical = dec.pressureScore >= 65;
+            return (
+              <div
+                key={dec.sector.id}
+                className="flex flex-col justify-between overflow-hidden rounded-xl border border-white/14 bg-[#082438]"
+              >
+                <div className="relative h-24 w-full overflow-hidden bg-[#041A29]">
+                  <img
+                    src={dec.sector.satImage}
+                    alt={dec.sector.nombre}
+                    className="h-full w-full object-cover opacity-55"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#082438] via-[#082438]/40 to-transparent" />
+                  <span className="absolute left-3 top-2.5 rounded bg-[#041A29]/85 px-2 py-0.5 font-mono text-[10px] font-black text-[#F8D86F]">
+                    PRIORIDAD #{idx + 1} · SECTOR 0{dec.sector.id}
+                  </span>
+                  <span
+                    className={`absolute right-3 top-2.5 rounded px-2 py-0.5 font-mono text-[11px] font-black ${
+                      isCritical
+                        ? "bg-[#C84023] text-white"
+                        : "bg-[#EDB512] text-[#041A29]"
+                    }`}
+                  >
+                    {dec.pressureScore}/100
+                  </span>
+                </div>
+
+                <div className="flex flex-1 flex-col justify-between p-4">
+                  <div>
+                    <p className="font-display text-base font-black leading-snug text-white">
+                      {dec.actionTitle}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-white/75">
+                      {dec.actionWhy}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onFocusSector?.(dec.sector.id);
+                        onJumpToBandeja?.({
+                          query: dec.sector.municipioPrincipal,
+                          level: dec.targetLevel,
+                        });
+                      }}
+                      className="inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#EDB512] px-3 text-xs font-black text-[#041A29] transition hover:bg-[#F8D86F]"
+                    >
+                      Actuar en Bandeja
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSectorFilter(dec.sector.id);
+                        onFocusSector?.(dec.sector.id);
+                      }}
+                      className="inline-flex min-h-[38px] items-center gap-1 rounded-lg border border-white/20 px-3 text-xs font-bold text-white/85 transition hover:border-[#EDB512] hover:text-white"
+                    >
+                      <Compass className="h-3.5 w-3.5 text-[#F8D86F]" />
+                      Enfocar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* 2. SIMULADOR TÁCTICO DE DESPLIEGUE + FOCOS CORROBORADOS */}
+      <section className="grid gap-4 lg:grid-cols-12">
+        {/* Simulador táctico de cuadrillas */}
+        <div className="rounded-xl border border-white/14 bg-[#082438] p-5 lg:col-span-7">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
+              <Layers className="h-4 w-4 text-[#F8D86F]" />
+              Simulador de despliegue de cuadrillas hoy
+            </h3>
+            <span className="font-mono text-[11px] font-bold text-[#86EFAC]">
+              {deployedSectors.length} de 4 sectores seleccionados
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-white/65">
+            Activa o desactiva sectores para estimar cobertura de alertas críticas, carbono azul resguardado y avance en las 828 ha por verificar.
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {sectorDecisions.map((d) => {
+              const active = deployedSectors.includes(d.sector.id);
+              return (
+                <button
+                  key={d.sector.id}
+                  type="button"
+                  onClick={() => toggleDeploySector(d.sector.id)}
+                  className={`flex min-h-[76px] flex-col justify-between rounded-lg border p-3 text-left transition ${
+                    active
+                      ? "border-[#EDB512] bg-[#005F96]/45 text-white"
+                      : "border-white/12 bg-[#041A29]/65 text-white/65 hover:border-white/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 font-mono text-[10px] font-black">
+                    <span className={active ? "text-[#F8D86F]" : "text-white/50"}>
+                      0{d.sector.id}
+                    </span>
+                    <span className={d.openUrgent > 0 ? "text-[#FCA5A5]" : "text-[#86EFAC]"}>
+                      {d.pressureScore} pts
+                    </span>
+                  </div>
+                  <span className="mt-1.5 block text-xs font-black leading-tight">
+                    {d.sector.municipioPrincipal}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/12 pt-4 sm:grid-cols-4">
+            <div>
+              <span className="block text-[11px] text-white/60">Alertas críticas cubiertas</span>
+              <span className="mt-0.5 block font-display text-2xl font-black tabular-nums text-[#86EFAC]">
+                {simCoveredPct}%
+              </span>
+            </div>
+            <div>
+              <span className="block text-[11px] text-white/60">Manglar en cobertura</span>
+              <span className="mt-0.5 block font-display text-2xl font-black tabular-nums text-white">
+                {simProtectedHa.toFixed(0)} ha
+              </span>
+            </div>
+            <div>
+              <span className="block text-[11px] text-white/60">Carbono resguardado</span>
+              <span className="mt-0.5 block font-display text-xl font-black tabular-nums text-[#F8D86F]">
+                {simCo2e.toLocaleString("es-CO")} t
+              </span>
+            </div>
+            <div>
+              <span className="block text-[11px] text-white/60">Brecha 828 ha cubierta</span>
+              <span className="mt-0.5 block font-display text-2xl font-black tabular-nums text-[#7DD3FC]">
+                {simPorRevisarHa.toFixed(0)} ha
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Focos activos corroborados (agrupación espacial <= 1.8 km) */}
+        <div className="rounded-xl border border-white/14 bg-[#082438] p-5 lg:col-span-5">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="inline-flex items-center gap-2 font-display text-lg font-black text-white">
+              <Flame className="h-4 w-4 text-[#FCA5A5]" />
+              Focos corroborados (≤ 1.8 km)
+            </h3>
+            <span className="font-mono text-[11px] font-bold text-[#F8D86F]">
+              {corroboratedClusters.length} eventos
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-white/65">
+            Agrupación automática de observaciones cercanas para priorizar eventos reales sobre reportes aislados.
+          </p>
+
+          <div className="mt-3.5 divide-y divide-white/10">
+            {corroboratedClusters.length === 0 ? (
+              <p className="py-6 text-xs text-white/60">
+                No se detectan agrupaciones múltiples en este rango de tiempo.
+              </p>
+            ) : (
+              corroboratedClusters.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-black text-white">
+                      {c.municipio} · {c.topEvent}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-white/65">
+                      <strong className="text-[#F8D86F]">{c.count} reportes</strong> ({c.urgentCount} críticos) ·{" "}
+                      {c.avgScore}/100 conf. · {relativeTime(c.latestTs, now)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onFocusSector?.(c.sectorId);
+                      onJumpToBandeja?.({ query: c.municipio, level: "all" });
+                    }}
+                    className="shrink-0 rounded-lg border border-white/20 px-2.5 py-1.5 text-[11px] font-black text-[#F8D86F] transition hover:border-[#EDB512] hover:bg-[#EDB512] hover:text-[#041A29]"
+                  >
+                    Auditar
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 border-b border-white/12 sm:grid-cols-3 lg:grid-cols-6">

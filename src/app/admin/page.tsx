@@ -600,6 +600,15 @@ function AdminCommandContent() {
             reports={reports as unknown as AnalyticsReport[]}
             dispatches={dispatches as unknown as AnalyticsDispatch[]}
             liveConnected={liveConnected}
+            onJumpToBandeja={({ query: q, level }) => {
+              if (q !== undefined) setQuery(q);
+              if (level) setLevelFilter(level);
+              setTab("bandeja");
+            }}
+            onFocusSector={(secId) => {
+              const idx = CRA_SECTORS.findIndex((s) => s.id === secId);
+              if (idx >= 0) setHeroSectorIdx(idx);
+            }}
           />
         )}
 
