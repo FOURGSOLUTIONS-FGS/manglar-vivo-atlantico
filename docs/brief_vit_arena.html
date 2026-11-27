@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Brief Entregable Vit Arena — Manglar Vivo Atlántico (CRA)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=Lato:wght@400;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      @page {
+        size: A4;
+        margin: 9.5mm 11.5mm 9.5mm 11.5mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body {
+        font-family: "Lato", "Helvetica Neue", Arial, sans-serif;
+        color: #0b2436;
+        background: #ffffff;
+        font-size: 8.6pt;
+        line-height: 1.34;
+      }
+      a {
+        color: #005f96;
+        text-decoration: underline;
+        word-break: break-word;
+      }
+      .hero {
+        background: linear-gradient(135deg, #041a29 0%, #0b3a58 60%, #005f96 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        padding: 14px 18px;
+        border-bottom: 4px solid #edb512;
+        margin-bottom: 9px;
+      }
+      .hero-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand-emblem {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        border: 2px solid #edb512;
+        object-fit: cover;
+        background: #041a29;
+      }
+      .cra-logo {
+        height: 32px;
+        width: auto;
+        object-fit: contain;
+      }
+      .pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(237, 181, 18, 0.18);
+        border: 1.5px solid #edb512;
+        color: #f8d86f;
+        font-size: 7.8pt;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        font-family: "Archivo", "Lato", sans-serif;
+        font-size: 18pt;
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        margin-bottom: 4px;
+      }
+      .hero h1 span {
+        color: #f8d86f;
+      }
+      .hero p {
+        font-size: 8.8pt;
+        color: #dce9f2;
+      }
+      .kpi-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+      .kpi {
+        background: #f4f8fb;
+        border: 1px solid #cfe0ec;
+        border-top: 3px solid #005f96;
+        border-radius: 8px;
+        padding: 7px 9px;
+      }
+      .kpi.gold {
+        border-top-color: #edb512;
+      }
+      .kpi-val {
+        font-family: "Archivo", sans-serif;
+        font-size: 12.5pt;
+        font-weight: 900;
+        color: #041a29;
+        line-height: 1.1;
+      }
+      .kpi-lbl {
+        font-size: 7.4pt;
+        font-weight: 700;
+        color: #36566d;
+        margin-top: 2px;
+      }
+      .links-box {
+        background: #fffbeb;
+        border: 1.8px solid #edb512;
+        border-radius: 10px;
+        padding: 9px 12px;
+        margin-bottom: 10px;
+        break-inside: avoid;
+      }
+      .links-box h2 {
+        font-family: "Archivo", sans-serif;
+        font-size: 9.8pt;
+        font-weight: 900;
+        color: #041a29;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .links-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px 10px;
+      }
+      .link-item {
+        background: #ffffff;
+        border: 1px solid #f0dca0;
+        border-radius: 6px;
+        padding: 5px 8px;
+      }
+      .link-label {
+        font-size: 7.3pt;
+        font-weight: 900;
+        color: #0b3a58;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+      .link-url {
+        font-size: 7.7pt;
+        font-weight: 700;
+        margin-top: 1px;
+        display: block;
+      }
+      .section {
+        margin-bottom: 10px;
+      }
+      .sec-title {
+        font-family: "Archivo", sans-serif;
+        font-size: 10.2pt;
+        font-weight: 900;
+        color: #005f96;
+        border-bottom: 1.8px solid #dbe7f0;
+        padding-bottom: 3px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+      .q-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .q-card {
+        border: 1.2px solid #d4e3ee;
+        border-left: 4.5px solid #005f96;
+        border-radius: 8px;
+        padding: 7px 10px;
+        background: #fafdff;
+        break-inside: avoid;
+      }
+      .q-card.g2 {
+        border-left-color: #1f78b4;
+      }
+      .q-card.g3 {
+        border-left-color: #33a02c;
+      }
+      .q-head {
+        font-family: "Archivo", sans-serif;
+        font-size: 9pt;
+        font-weight: 900;
+        color: #041a29;
+        margin-bottom: 2px;
+      }
+      .q-body {
+        font-size: 8.3pt;
+        color: #1f394c;
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+      .card {
+        background: #f7fafc;
+        border: 1.2px solid #d7e4ee;
+        border-radius: 8px;
+        padding: 9px 11px;
+        break-inside: avoid;
+      }
+      .card h3 {
+        font-family: "Archivo", sans-serif;
+        font-size: 9.2pt;
+        font-weight: 900;
+        color: #041a29;
+        margin-bottom: 4px;
+      }
+      .card ul {
+        padding-left: 14px;
+        font-size: 8.3pt;
+        color: #1f394c;
+      }
+      .card li {
+        margin-bottom: 2.5px;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 8.1pt;
+        margin-top: 3px;
+      }
+      th {
+        background: #041a29;
+        color: #ffffff;
+        text-align: left;
+        padding: 5.5px 8px;
+        font-weight: 900;
+      }
+      td {
+        padding: 5px 8px;
+        border-bottom: 1px solid #dbe6ef;
+        vertical-align: top;
+      }
+      tr {
+        break-inside: avoid;
+      }
+      tr:nth-child(even) td {
+        background: #f5f9fc;
+      }
+      .badge-ok {
+        display: inline-block;
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+        border-radius: 5px;
+        padding: 1px 5px;
+        font-size: 7.4pt;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+      .plan-bar {
+        display: flex;
+        gap: 6px;
+        margin-top: 4px;
+        flex-wrap: wrap;
+      }
+      .plan-chip {
+        padding: 2px 8px;
+        border-radius: 999px;
+        color: #ffffff;
+        font-size: 7.4pt;
+        font-weight: 900;
+      }
+      .footer {
+        margin-top: 10px;
+        padding-top: 6px;
+        border-top: 1.5px solid #dbe6ef;
+        display: flex;
+        justify-content: space-between;
+        font-size: 7.6pt;
+        color: #4b677c;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- PÁGINA 1: PORTADA EJECUTIVA + ENLACES CLICABLES + 3 PREGUNTAS DE GOBERNANZA -->
+    <div class="hero">
+      <div class="hero-top">
+        <div class="brand-lockup">
+          <img src="../public/images/logo-manglar-vivo.png" alt="Logo Manglar Vivo" class="brand-emblem" />
+          <img src="../video-demo/assets/logo_cra_blanco.png" alt="CRA Atlántico" class="cra-logo" />
+        </div>
+        <div class="pill">Entrega Oficial · Vit Arena 2026 · CRA Atlántico</div>
+      </div>
+      <h1>MANGLAR VIVO <span>ATLÁNTICO</span></h1>
+      <p>
+        Brief Ejecutivo y Ficha de Entrega: plataforma offline-first de ciencia ciudadana, bot interactivo de WhatsApp,
+        validación visual con IA (100 % anti-falsos), detección satelital de fuego <strong>NASA FIRMS</strong> en vivo y
+        CRM de decisiones operativas para los ecosistemas de manglar del Atlántico.
+      </p>
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi gold">
+        <div class="kpi-val">828 ha</div>
+        <div class="kpi-lbl">Por verificar en campo (1,069.6 ha probables CRA)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">15/15 (100 %)</div>
+        <div class="kpi-lbl">Filtro visual IA anti-falsos y pantallas PC</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">524 pts</div>
+        <div class="kpi-lbl">Puntos reales ground-truth CRA en PostGIS</div>
+      </div>
+      <div class="kpi gold">
+        <div class="kpi-val">NASA 24 h</div>
+        <div class="kpi-lbl">Focos de fuego VIIRS 375 m en vivo + WhatsApp</div>
+      </div>
+    </div>
+
+    <div class="links-box">
+      <h2>🔗 Enlaces Oficiales de Evaluación (Clicables y 100 % Públicos)</h2>
+      <div class="links-grid">
+        <div class="link-item">
+          <div class="link-label">🌐 Aplicación en Producción (PWA Offline-First)</div>
+          <a class="link-url" href="https://manglar.arpadura.com">https://manglar.arpadura.com</a>
+        </div>
+        <div class="link-item">
+          <div class="link-label">🎥 Video Demo Oficial 1080p (75 s · Voz Estudio)</div>
+          <a
+            class="link-url"
+            href="https://nhyicthczgjfzreneiuc.supabase.co/storage/v1/object/public/demo-media/Manglar_Vivo_Atlantico_Demo_VitArena.mp4"
+            >Ver Video MP4 Directo en Navegador</a
+          >
+        </div>
+        <div class="link-item">
+          <div class="link-label">💻 Repositorio GitHub (Código Abierto + Release)</div>
+          <a class="link-url" href="https://github.com/FOURGSOLUTIONS-FGS/manglar-vivo-atlantico"
+            >github.com/FOURGSOLUTIONS-FGS/manglar-vivo-atlantico</a
+          >
+        </div>
+        <div class="link-item">
+          <div class="link-label">📦 Descarga Release v2.0.0 (Video + Documentación)</div>
+          <a class="link-url" href="https://github.com/FOURGSOLUTIONS-FGS/manglar-vivo-atlantico/releases/tag/v2.0.0"
+            >github.com/.../releases/tag/v2.0.0</a
+          >
+        </div>
+        <div class="link-item">
+          <div class="link-label">🧭 Centro de Mando CRA (CRM + Decisiones + NASA)</div>
+          <a class="link-url" href="https://manglar.arpadura.com/admin">https://manglar.arpadura.com/admin</a>
+        </div>
+        <div class="link-item">
+          <div class="link-label">📱 Estación NFC / Turistas (#03 Juan de Acosta)</div>
+          <a class="link-url" href="https://manglar.arpadura.com/p/3">https://manglar.arpadura.com/p/3</a>
+        </div>
+        <div class="link-item">
+          <div class="link-label">🗺️ Sala Satelital CRA + Visor Territorial</div>
+          <a class="link-url" href="https://manglar.arpadura.com/cra">https://manglar.arpadura.com/cra</a>
+        </div>
+        <div class="link-item">
+          <div class="link-label">📊 Datos Abiertos Ley 1581 (CSV / GeoJSON)</div>
+          <a class="link-url" href="https://manglar.arpadura.com/api/open-data?format=geojson"
+            >manglar.arpadura.com/api/open-data?format=geojson</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title">1. Respuesta Explícita a las 3 Preguntas Mínimas de Gobernanza</div>
+      <div class="q-grid">
+        <div class="q-card">
+          <div class="q-head">
+            1) ¿Dónde ocurre una amenaza o cambio ahora mismo, qué pasa y con qué prioridad de conservación coincide?
+          </div>
+          <div class="q-body">
+            Reporte guiado en <strong>3 pasos (<code>/reportar</code>)</strong> o directo desde
+            <strong>WhatsApp</strong> con timestamp exacto (ISO-8601), <strong>GPS honesto</strong> (el modo demo
+            salón se etiqueta <code>SIMULADO (DEMO)</code> en UI, BD y exportaciones), dictado por voz universal móvil y
+            cruce espacial inmediato <strong>incluso en modo avión</strong> contra los
+            <strong>9,408 polígonos del KMZ CRA</strong>, zonas de manglar probable y las <strong>828 ha por revisar</strong>.
+            Se integra en tiempo real el satélite <strong>NASA FIRMS VIIRS 375 m</strong> (NOAA-20 y NOAA-21) para
+            detectar focos de fuego alrededor del Atlántico cada 24 h.
+            <div class="plan-bar">
+              <span class="plan-chip" style="background: #1f78b4">Preservación</span>
+              <span class="plan-chip" style="background: #33a02c">Restauración</span>
+              <span class="plan-chip" style="background: #ff7f00">Recuperación</span>
+              <span class="plan-chip" style="background: #8b5cf6">Rehabilitación</span>
+            </div>
+          </div>
+        </div>
+        <div class="q-card g2">
+          <div class="q-head">
+            2) ¿Cómo se valida que el dato ciudadano es confiable antes de integrarlo a alertas oficiales?
+          </div>
+          <div class="q-body">
+            Preservación de la <strong>fotografía original intacta (EXIF)</strong>, escudo anti-spam de 6 capas
+            (Honeypot, SHA-256 anti-duplicados, geocerca Atlántico, rate-limit),
+            <strong>Filtro Visual IA Anti-Falsos</strong> (<code>google/gemini-2.5-flash</code>: <strong>15/15 = 100 %</strong>,
+            rechaza fotos tomadas a pantallas de PC/portátiles e interiores con <code>0/25</code> bloqueando falsas
+            alertas rojas), <strong>Semáforo de Confiabilidad (0–100 pts)</strong>, contraste en PostGIS con los
+            <strong>524 puntos reales CRA</strong>, corroboración de reportes cercanos (≤ 1.8 km) y
+            <strong>doble validación comunitaria + académica (<code>/validar</code>)</strong>.
+          </div>
+        </div>
+        <div class="q-card g3">
+          <div class="q-head">3) ¿Cómo sostener la participación de escuelas, comunidad y turistas en el tiempo?</div>
+          <div class="q-body">
+            <strong>Estaciones físicas NFC y QR (<code>/p/1</code> a <code>/p/4</code>)</strong> sin registro con
+            <strong>audioguía en voz colombiana (MP3 offline)</strong>, <strong>Pasaporte Costero de 4 sellos</strong>,
+            retos en terreno y guía de las <strong>4 especies locales</strong>.
+            <strong>Bot Interactivo de WhatsApp</strong> con carrusel deslizable de 4 fotos, ubicación en 1 toque, notas
+            de voz y alerta de fuego NASA. <strong>Modo Escuelas PRAES (<code>/escuelas</code>)</strong> con cierre de
+            ciclo público por código <code>MGL-XXXX</code> y módulo de <strong>Formulación MGA / CO₂e</strong>
+            (<code>/participacion</code>). Lenguaje 100 % claro y amigable para cualquier edad.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA 2: CAPACIDADES DIFERENCIALES + GUION 7 MIN + ARQUITECTURA & IA -->
+    <div class="page-break"></div>
+
+    <div class="section">
+      <div class="sec-title">2. Funcionalidades Destacadas Listas para Demostración en Vivo</div>
+      <div class="two-col">
+        <div class="card">
+          <h3>💬 Asistente Interactivo WhatsApp (Zernio)</h3>
+          <ul>
+            <li>Menú con foto de bienvenida y 3 botones interactivos reales.</li>
+            <li><strong>Carrusel deslizable de 4 tarjetas</strong> (Mallorquín, Puerto Velero, Juan de Acosta, Totumo) con botón directo a audioguía.</li>
+            <li>Botón nativo de <strong>ubicación en 1 toque</strong> y transcripción de notas de voz.</li>
+            <li><strong>Auditoría visual IA al instante</strong> + respuesta con minimapa satelital y código <code>MGL-ZN-XXXX</code>.</li>
+            <li>Aterriza en vivo en el CRM marcado con etiqueta <strong><code>Canal: WhatsApp</code></strong>.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🛰️ Centro de Mando CRA + Satélite NASA FIRMS</h3>
+          <ul>
+            <li>Feed satelital público <strong>NASA FIRMS VIIRS 375 m</strong> (NOAA-20 + NOAA-21) en vivo con distancia exacta al manglar más cercano.</li>
+            <li><strong>Motor de Decisiones Recomendadas</strong> (Índice de Presión Operativa 0–100) y <strong>Simulador Táctico de Cuadrillas</strong>.</li>
+            <li>Correos urgentes reales con <strong>minimapa satelital PNG</strong> + envío a cualquier correo personalizado en 1 clic.</li>
+            <li>Descarga abierta <strong>CSV y GeoJSON (Ley 1581)</strong> lista para QGIS y Gobierno Digital.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title">3. Guion Sugerido de Presentación ante el Jurado (Máx. 7 Minutos)</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 12%">Tiempo</th>
+            <th style="width: 24%">Pantalla / Canal</th>
+            <th>Demostración en Vivo de Alto Impacto</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>0:00 – 1:15</strong></td>
+            <td>Video Demo 1080p (o Portada <code>/</code>)</td>
+            <td>Reproduce el video oficial (75 s) o muestra el reto territorial: <strong>1,069.6 ha</strong> probables, <strong>828 ha por verificar</strong> y <strong>160,676 t de carbono azul</strong>.</td>
+          </tr>
+          <tr>
+            <td><strong>1:15 – 2:30</strong></td>
+            <td>Celular NFC <code>/p/3</code> + Turista</td>
+            <td>Acerca el chip NFC o abre <code>/p/3</code>: reproduce la <strong>audioguía en voz colombiana</strong>, muestra el <strong>Pasaporte Costero (4 sellos)</strong> y las 4 especies del Atlántico.</td>
+          </tr>
+          <tr>
+            <td><strong>2:30 – 4:15</strong></td>
+            <td>WhatsApp Bot + <code>/reportar</code> Offline</td>
+            <td>Muestra el <strong>carrusel de 4 fotos en WhatsApp</strong>, toca <strong>🔥 Fuego NASA hoy</strong> y sube una foto de pantalla de PC para probar el <strong>bloqueo IA 0/25 anti-falsos</strong>; luego envía una evidencia real.</td>
+          </tr>
+          <tr>
+            <td><strong>4:15 – 5:45</strong></td>
+            <td>CRM <code>/admin</code> + Satélite NASA</td>
+            <td>Muestra el reporte entrando en tiempo real con badge <strong><code>Canal: WhatsApp</code></strong>, el <strong>Monitor NASA FIRMS</strong>, el <strong>Simulador de Cuadrillas</strong> y despacha un correo con minimapa en 1 clic.</td>
+          </tr>
+          <tr>
+            <td><strong>5:45 – 7:00</strong></td>
+            <td><code>/validar</code>, <code>/cra</code> y Datos Abiertos</td>
+            <td>Cierra el ciclo con <strong>doble validación</strong>, descarga el archivo <strong>GeoJSON/CSV anonimizado (Ley 1581)</strong> y muestra la trazabilidad pública para escuelas PRAES (<code>/escuelas</code>).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="sec-title">4. Arquitectura Técnica, Pruebas Verificadas y Transparencia de IA</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 26%">Capa / Componente</th>
+            <th style="width: 40%">Tecnología / Modelo Documentado</th>
+            <th>Estado Verificado en Producción</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>PWA Offline-First</strong></td>
+            <td>Next.js 16, React 19, TypeScript, Tailwind v4, Service Worker liviano (&lt; 250 KB), IndexedDB + Turf.js offline</td>
+            <td><span class="badge-ok">24/24 rutas OK</span> Optimizado 2G/3G (-91 % peso)</td>
+          </tr>
+          <tr>
+            <td><strong>Base Espacial &amp; API</strong></td>
+            <td>PostgreSQL 17 + PostGIS (Supabase), 9,408 polígonos KMZ CRA + 524 puntos ground-truth + Realtime + Storage</td>
+            <td><span class="badge-ok">Activo en vivo</span> Datos abiertos Ley 1581 (0 PII)</td>
+          </tr>
+          <tr>
+            <td><strong>IA Visión &amp; Voz</strong></td>
+            <td><code>google/gemini-2.5-flash</code> (OpenRouter) para auditoría anti-falsos (visión) y dictado/notas de voz (<code>input_audio</code>)</td>
+            <td><span class="badge-ok">15/15 = 100 %</span> Bloquea pantallas de PC e interiores</td>
+          </tr>
+          <tr>
+            <td><strong>Omnicanalidad &amp; Alertas</strong></td>
+            <td>Zernio API (WhatsApp interactivo, Telegram, IG, FB, SMS) + Motor SOLID (<code>src/core/alerts/</code>) + SMTP minimapa</td>
+            <td><span class="badge-ok">13/13 tests OK</span> Webhook vivo 200 OK</td>
+          </tr>
+          <tr>
+            <td><strong>Satélite &amp; Sensores</strong></td>
+            <td>NASA FIRMS VIIRS 375 m (NOAA-20/21, cero API key) + API IoT <code>/api/telemetry</code> (5 variables agua CRA/Uninorte)</td>
+            <td><span class="badge-ok">En vivo 24 h</span> 4 focos Atlántico / 19 Caribe hoy</td>
+          </tr>
+          <tr>
+            <td><strong>Multimedia &amp; Voz</strong></td>
+            <td>Microsoft Neural TTS (<code>es-CO-SalomeNeural</code> audioguías, <code>es-MX-DaliaNeural</code> video demo) + HyperFrames 1080p</td>
+            <td><span class="badge-ok">MP4 1080p público</span> 75.5 s · 24.2 MB</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <div><strong>Manglar Vivo Atlántico</strong> · Hackathon CRA Atlántico — Vit Arena 2026</div>
+      <div>Cumplimiento Ley 1581 de 2012 (Privacidad) · Código Abierto · Transparencia IA</div>
+    </div>
+  </body>
+</html>

@@ -1,50 +1,50 @@
-# Ficha Técnica — Manglar Vivo Atlántico (Hackathon CRA / Vit Arena)
+# Ficha Técnica — Manglar Vivo Atlántico (Hackathon CRA / Vit Arena 2026)
+
+- **Aplicación en producción:** https://manglar.arpadura.com
+- **Repositorio oficial:** https://github.com/FOURGSOLUTIONS-FGS/manglar-vivo-atlantico
+- **Video Demo 1080p (público):** https://nhyicthczgjfzreneiuc.supabase.co/storage/v1/object/public/demo-media/Manglar_Vivo_Atlantico_Demo_VitArena.mp4
+- **Release GitHub v2.0.0:** https://github.com/FOURGSOLUTIONS-FGS/manglar-vivo-atlantico/releases/tag/v2.0.0
+- **Brief Ejecutivo PDF:** [docs/Brief_Entregable_VitArena_Manglar_Vivo_Atlantico.pdf](./docs/Brief_Entregable_VitArena_Manglar_Vivo_Atlantico.pdf)
 
 ## 1. Resumen de la solución y las 3 preguntas de gobernanza
 
 1. **¿Dónde ocurre una amenaza o cambio en el manglar ahora mismo, qué pasa y con qué prioridad coincide?**
-   - Captura ciudadana en 3 pasos (`/reportar`) organizada en **4 dominios ambientales × 12 factores específicos** (`Cobertura y Suelo`, `Agua y Salud del Dosel`, `Contaminación y Residuos`, `Fauna y Verificación Viva`), **multi-evidencia fotográfica de 1 a 3 tomas** con EXIF intacto, dictado por voz nativo (`es-CO`) y `timestamp_captura` ISO-8601.
-   - **Estaciones físicas NFC y QR (`/p/1` a `/p/4`):** etiquetas ultracortas de 32 caracteres (`NTAG213/215/216`) que abren una vista inmersiva del punto costero con foto del lugar, ráster Sentinel-2 CRA, minimapa satelital exacto, **audioguía inclusiva en voz alta (`es-CO`)** y atajos de reporte en 1 toque.
-   - GPS real (`getCurrentPosition`, sin simular silenciosamente; el modo presentación en salón marca explícitamente `SIMULADO (DEMO)` en UI, base de datos, correos y exportaciones) + cruce espacial instantáneo —incluso en modo avión— contra los **9,408 polígonos costeros** de `Prioridades de Conservación (1).kmz`, las **775 ha de manglar probable**, las **828 ha por revisar** y las **262 ha de dosel seco 2026**.
+   - **Captura ciudadana offline en 3 pasos (`/reportar`):** 4 dominios ambientales × 12 factores específicos (`Cobertura y Suelo`, `Agua y Salud del Dosel`, `Contaminación y Residuos`, `Fauna y Verificación Viva`), multi-evidencia fotográfica (1 a 3 fotos preservando metadatos originales), **dictado por voz universal** (vía `/api/ai/transcribe` en móvil iOS/Android y escritorio) y `timestamp_captura` ISO-8601.
+   - **Monitor Satelital de Fuego NASA FIRMS en Vivo (`/api/nasa-fires`):** ingesta directa en tiempo real (sin clave de terceros) de los satélites **NOAA-20 y NOAA-21 VIIRS 375 m (últimas 24 h)** cruzada espacialmente con los 4 sectores costeros del Atlántico, visible en el CRM `/admin` y consultable en 1 toque desde WhatsApp.
+   - **Estaciones físicas NFC y QR (`/p/1` a `/p/4`):** etiquetas ultracortas (`NTAG213/215/216`) que abren la vista de cada sector con ráster Sentinel-2, minimapa exacto, **audioguía MP3 en voz colombiana (`es-CO`)**, **Pasaporte Costero de 4 sellos**, pistas en terreno, guía de las **4 especies locales** (*Rhizophora mangle*, *Avicennia germinans*, *Laguncularia racemosa*, *Conocarpus erectus*) y módulo de sensores de agua (`/api/telemetry`, 5 variables de campo CRA/Uninorte).
+   - **GPS honesto y capas oficiales:** usa `getCurrentPosition` sin inventar coordenadas silenciosamente; el modo presentación en salón etiqueta `SIMULADO (DEMO)` en UI, base de datos, correos y exportaciones. Cruce espacial offline contra **9,408 polígonos costeros** del KMZ CRA, **1,069.6 ha de manglar probable**, **828 ha por revisar** y **262 ha de dosel seco 2026**.
+
 2. **¿Cómo se valida que el dato ciudadano es confiable antes de integrarlo a alertas oficiales?**
-   - **Escudo anti-spam / anti-troll de 6 capas (`src/core/security/anti-spam.ts`):** Honeypot invisible, temporizador humano mínimo (`>= 2.5 s`), geocerca estricta del Atlántico, filtro de texto basura/phishing/insultos, detección de fotos duplicadas por hash **SHA-256** (30 min), rate limiting por IP/dispositivo y cooldown anti-bombardeo de correos urgentes (15 min/sector) — validado con **13/13 pruebas automatizadas (`npm test`)** y ataques en vivo.
-   - Fotografía multi-ángulo original (`18/25` con 1 foto, `25/25` con 2–3 fotos) + **filtro visual IA anti-alucinación** (`/api/ai/classify`, `14/14 = 100 %` rechazo a interiores/personas, `12/12 = 100 %` exactitud en los 12 factores), **Semáforo de Confiabilidad de 5 segmentos (0–100 pts)**, contraste en **PostGIS** con los **524 puntos *ground-truth*** de la CRA (`resolve_location_context`), corroboración ciudadana en 500 m y **doble validación** (`/validar`).
-   - **Motor SOLID de clasificación y despacho de alertas (`/admin`):** 4 niveles claros (`Urgente < 2 h`, `Alta < 24 h`, `Revisión < 48 h`, `Verificación 828 ha`), sonidos Web Audio por nivel, notificaciones del navegador vía Supabase Realtime y correo ejecutivo compacto vía **Hostinger SMTP (`alertas-manglar@arpadura.com`)** con galería de hasta 3 fotos + **minimapa satelital PNG clicable (`/api/minimap`)** y auditoría en `alert_dispatches`.
+   - **Escudo anti-spam / anti-troll de 6 capas (`src/core/security/anti-spam.ts`):** Honeypot invisible, temporizador humano mínimo (`>= 2.5 s`), geocerca estricta del Atlántico, filtro de texto basura/phishing/insultos, detección de fotos duplicadas por hash **SHA-256**, rate limiting y cooldown anti-bombardeo de correos urgentes (`13/13` pruebas automatizadas en `npm test`).
+   - **Filtro Visual IA Anti-Falsos (`/api/ai/classify`):** `15/15 (100 %)` rechazo a interiores, personas y **fotos tomadas a pantallas de computador/portátil incluso mostrando manglares** (penalización `0/25` y bloqueo automático de alertas rojas), con reglas botánicas anti-confusión para raíces zancudas normales de *Rhizophora mangle*.
+   - **Semáforo de Confiabilidad (0–100 pts) + Doble Validación (`/validar`):** contraste en **PostgreSQL / PostGIS** con los **524 puntos reales (*ground-truth*)** de la CRA, corroboración de focos múltiples (`≤ 1.8 km`) y validación comunitaria + académica.
+   - **Centro de Mando Operativo y Decisiones (`/admin`):** Índice de Presión Operativa (0–100), Simulador Táctico de Cuadrillas, trazabilidad por canal de entrada (`WhatsApp`, `Telegram`, `Instagram`, `Facebook`, `SMS`, `NFC`, `QR`, `App PWA`), despacho automático de correos ejecutivos con **minimapa satelital PNG (`/api/minimap`)** y envío manual a cualquier correo en 1 clic.
+
 3. **¿Cómo sostener la participación de escuelas y turistas en el tiempo?**
-   - **Modo Escuelas (`/escuelas`):** adopción escolar de las `828 ha por revisar`, tablero PRAES y **cierre de ciclo visual** en 4 estaciones por código `MGL-2026-XXXX`.
-   - **Modo Turistas QR (`/turista`):** acceso sin registro desde estaciones costeras con ficha educativa de 30 s y código QR real escaneable.
-   - **Actores y Formulación (`/participacion`):** evolución funcional de `manglarcra.netlify.app/maqueta` con registro obligatorio de actores (Ley 1581), 4 listas de chequeo de 6 ítems (Res. 1263 de 2018), flujo de 6 estados y generador automático de borradores **MGA (DNP)** y **Nota Conceptual (`t CO₂e = ha × tC/ha × 3.667`)**.
+   - **Asistente Interactivo de WhatsApp (vía Zernio, `/api/webhooks/zernio`):** sin descargas ni registros — ofrece menú visual con foto, **carrusel deslizable nativo de 4 tarjetas con foto y botón de audioguía**, solicitud nativa de **ubicación en 1 toque**, transcripción de **notas de voz**, botón **`🔥 Fuego NASA hoy`**, auditoría visual IA inmediata con respuesta en minimapa satelital y creación automática del reporte en el CRM con `Canal: WHATSAPP`.
+   - **Lenguaje 100 % amigable para todas las edades:** toda la interfaz ciudadana y operativa sustituye jerga técnica por español claro, con identidad visual oficial CRA, logo propio y tarjetas OpenGraph dinámicas (`/api/og`) al compartir cualquier enlace.
+   - **Modo Escuelas PRAES (`/escuelas`) y Participación (`/participacion`):** adopción de las `828 ha por revisar`, cierre de ciclo público por código `MGL-XXXX`, registro de actores (Ley 1581), listas de chequeo Res. 1263/2018 y borradores automáticos **MGA (DNP)** y **CO₂e (`× 3.667`)**.
 
-## 2. Arquitectura y Stack Tecnológico (SOLID + Offline-First)
+## 2. Arquitectura y Stack Tecnológico (SOLID + Offline-First + Rendimiento 2G/3G)
 
-- **Frontend & PWA:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, **GSAP + ScrollTrigger + Lenis** (con `prefers-reduced-motion`), tipografía **`Archivo` + `Lato`** (oficial CRA), rásters Sentinel-2 reales de los 4 sectores (`/media/sat/z1_img.jpg`–`z4_img.jpg`) y video aéreo oficial CRA (`portada_960.mp4`).
-- **Offline-First en Campo:** Service Worker (`/sw.js`, versión `manglar-vivo-v6`) + **IndexedDB** (`idb`, store `pending_reports` guardando fotografía original `Blob` con EXIF intacto) con sincronización automática al recuperar señal.
-- **Arquitectura SOLID de Alertas (`src/core/alerts/`):**
-  - `classifier.ts` (SRP): reglas puras determinísticas de clasificación + bloqueo anti-falsos positivos.
-  - `routing.ts` (SRP): matriz oficial de autoridades receptoras CRA / Policía Ambiental / Mentores / Red PRAES.
-  - `email-template.ts` (SRP): plantilla HTML institucional con foto, GPS, semáforo y enlace directo `/admin?code=...`.
-  - `channels/` (OCP + LSP): adaptadores intercambiables `SmtpNotificationChannel` (Hostinger SMTP), `ResendNotificationChannel` y `WebhookNotificationChannel`.
-  - `dispatcher.ts` (DIP): orquestador con inyección de canales y repositorio de auditoría (`alert_dispatches`), cubierto por pruebas unitarias (`npm test` → 5/5 en verde).
+- **Frontend & PWA:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, **GSAP + ScrollTrigger**, tipografía oficial CRA (`Lato` + `Archivo`), imágenes optimizadas (`-91 %` en peso de portada), compresión HTTP + caché inmutable y desplazamiento nativo en móviles de gama baja.
+- **Offline-First en Campo:** Service Worker liviano (`/sw.js`, precache `< 250 KB`, timeout `2 s`) + almacenamiento local en el navegador (`idb`) guardando fotografías originales con metadatos intactos para sincronización automática al volver la señal.
+- **Arquitectura SOLID de Alertas (`src/core/alerts/`):** `classifier.ts` (SRP), `routing.ts` (SRP), `email-template.ts` (SRP), canales intercambiables `SmtpNotificationChannel` / `ResendNotificationChannel` / `WebhookNotificationChannel` (OCP + LSP) y `dispatcher.ts` (DIP) con auditoría persistente en `alert_dispatches`.
+- **Omnicanalidad (Zernio API):** integración completa en `src/lib/zernio.ts`, `/api/zernio` y `/api/webhooks/zernio` con verificación de firma, deduplicación por evento y anonimización de remitentes por hash SHA-256 (Ley 1581).
 - **Geoespacial y Base de Datos:** Pipeline Python (`convert_cra_geodata.py`, KMZ + UTM 18N `EPSG:32618` → WGS84 `EPSG:4326`), Turf.js offline + Leaflet satelital + **PostgreSQL 17 / PostGIS**, Realtime y Storage en Supabase (`nhyicthczgjfzreneiuc`).
-- **Seguridad y Gobernanza:** Rate limiting por IP en `/api/ai/classify` y `/api/alerts`, PIN institucional en `/admin` (con acceso demo para jurado), RLS en Supabase y anonimización estricta en datos abiertos.
 
-## 3. Transparencia de Inteligencia Artificial (Uso Documentado)
+## 3. Transparencia de Inteligencia Artificial (Uso Documentado para Vit Arena)
 
 | Etapa | Herramienta / Modelo de IA | Propósito |
 | :--- | :--- | :--- |
-| **En tiempo de ejecución (`/api/ai/classify`)** | **OpenRouter API — Primario: `google/gemini-2.5-flash`** + Respaldos Gemini (`google/gemini-3.5-flash-lite`, `google/gemini-4-hydrogen`) + fallback heurístico local offline | Auditoría visual anti-falsos positivos (`es_evidencia_valida`), detección de rostros Ley 1581, clasificación en 12 subtipos ambientales y asistencia a mentores. |
-| **Visuales editoriales** | Generador multimodal (`image-generator`) + media oficial CRA (`portada_960.mp4`, rásters Sentinel-2) | Portada costera, escena escolar PRAES y estación turística QR. |
-| **Ingeniería y verificación** | Asistente agéntico (Antigravity / Gemini) | Conversión KMZ/UTM 18N, arquitectura PostGIS/PWA/SOLID, pruebas unitarias y benchmark multimodal. |
-
-### Benchmark Multimodal y Filtro Anti-Falsos Positivos (Evidencia Real)
-
-- **Selección de modelo (OpenRouter, 7 modelos evaluados):** **`google/gemini-2.5-flash`** obtuvo el mejor equilibrio costo/precisión (`4/4` en severidad y tipo, `2,202 ms` promedio, **\$0.499 USD / 1,000 reportes**), respaldado por `google/gemini-3.5-flash-lite` y `google/gemini-4-hydrogen` con `max_tokens: 1200`.
-- **Evaluación sobre 14 fotografías reales (`scripts/test_vision_dataset.mjs`, usuario deliberadamente sesgado a `tala_poda`):**
-  - **Filtro anti-falsos positivos (fotos reales ambientales vs. oficinas/retratos en interiores):** **14/14 (100 %)**.
-  - **Exactitud en 12 subtipos específicos:** **92 % – 100 %** tras ajuste de erosión costera (`docs/vision_dataset_benchmark.json`).
+| **Auditoría visual en tiempo real (`/api/ai/classify`)** | **OpenRouter — Primario: `google/gemini-2.5-flash`** (respaldos Gemini Flash Lite / Hydrogen + fallback seguro offline) | Validación anti-falsos (15/15 = 100 %, rechaza pantallas de PC e interiores), detección de rostros Ley 1581 y clasificación en 12 factores ambientales. |
+| **Transcripción de voz (`/api/ai/transcribe`)** | **OpenRouter — `google/gemini-2.5-flash` (`input_audio`)** | Dictado por voz universal en móviles (iOS/Android) y notas de voz enviadas por WhatsApp. |
+| **Audioguías y locución de demo** | **Microsoft Neural TTS (`es-CO-SalomeNeural` y `es-MX-DaliaNeural`)** + masterización FFmpeg | 4 audioguías inclusivas de campo en voz colombiana (`public/media/audio/estacion-1..4.mp3`) y locución de estudio del video demo 1080p. |
+| **Identidad visual y material editorial** | Generación de logo institucional y piezas gráficas (`image-generator`) + rásters reales Sentinel-2 y video aéreo oficial CRA | Logo oficial de la app, icono PWA, tarjeta OpenGraph (`/api/og`) y visuales de estaciones turísticas/escolares. |
+| **Ingeniería y verificación** | Asistente agéntico (Antigravity / Gemini) | Conversión KMZ/UTM 18N, arquitectura PostGIS/PWA/SOLID/Zernio/NASA FIRMS, pruebas automatizadas y producción de video HyperFrames. |
 
 ## 4. Diccionario de Datos Abiertos (Gobierno Digital — Ley 1581 de 2012)
 
-Endpoint público: `GET /api/open-data?format=csv` y `GET /api/open-data?format=geojson`.
-Todos los registros se exportan anonimizados (sin nombres propios, correos ni teléfonos personales):
-- `tracking_code`, `timestamp_captura` (ISO-8601), `latitud`, `longitud`, `precision_gps_m`, `is_simulated_gps`, `zona_manglar`, `municipio`, `sector_id`, `accion_plan`, `en_zona_por_revisar`, `factor_dominio`, `subtipo_evento`, `tipo_evento`, `nivel_alerta`, `foto_validada_ia`, `descripcion_ciudadana`, `perfil_reportante`, `estado_sincronizacion`, `estado_validacion`, `attention_status`, `clasificacion_tecnica`, `nivel_prioridad`, `puntaje_confiabilidad`, `evidencia_foto_url`.
+Endpoints públicos: `GET /api/open-data?format=csv` y `GET /api/open-data?format=geojson`.
+Todos los registros se exportan **100 % anonimizados** (cero teléfonos, correos ni nombres personales):
+- `tracking_code`, `timestamp_captura` (ISO-8601), `latitud`, `longitud`, `precision_gps_m`, `is_simulated_gps`, `zona_manglar`, `municipio`, `sector_id`, `accion_plan`, `en_zona_por_revisar`, `canal_ingreso`, `factor_dominio`, `subtipo_evento`, `tipo_evento`, `nivel_alerta`, `foto_validada_ia`, `descripcion_ciudadana`, `perfil_reportante`, `estado_sincronizacion`, `estado_validacion`, `attention_status`, `clasificacion_tecnica`, `nivel_prioridad`, `puntaje_confiabilidad`, `evidencia_foto_url`.
